@@ -48,7 +48,7 @@ body{font-family:'Zen Maru Gothic',sans-serif;background:var(--cream);color:var(
 
 /* ── Header ── */
 .top-bar{background:linear-gradient(135deg,var(--moss),var(--leaf));color:#fff;padding:14px 16px 12px;position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:10px;}
-.top-bar h1{font-family:'Shippori Mincho',serif;font-size:1.15rem;font-weight:600;flex:1;}
+.top-bar h1{font-family:sans-serif;font-size:1.15rem;font-weight:600;flex:1;}
 .top-bar .sub{font-size:.7rem;opacity:.85;}
 .top-icon{font-size:1.8rem;}
 .icon-btn{background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:50%;width:36px;height:36px;cursor:pointer;font-size:1.1rem;display:flex;align-items:center;justify-content:center;}
@@ -68,7 +68,7 @@ body{font-family:'Zen Maru Gothic',sans-serif;background:var(--cream);color:var(
 .card-thumb{width:56px;height:56px;border-radius:10px;object-fit:cover;flex-shrink:0;background:var(--cream);display:flex;align-items:center;justify-content:center;font-size:1.8rem;}
 .card-thumb img{width:100%;height:100%;object-fit:cover;border-radius:10px;}
 .card-info{flex:1;min-width:0;}
-.card-name{font-family:'Shippori Mincho',serif;font-size:.95rem;font-weight:600;}
+.card-name{font-family:sans-serif;font-size:.95rem;font-weight:600;}
 .card-variety{font-size:.7rem;color:#999;margin-top:1px;}
 .card-badges{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;}
 .badge{font-size:.62rem;padding:2px 7px;border-radius:20px;font-weight:600;}
@@ -88,7 +88,7 @@ body{font-family:'Zen Maru Gothic',sans-serif;background:var(--cream);color:var(
 .care-chip{font-size:.65rem;background:var(--cream);padding:2px 8px;border-radius:20px;color:#666;}
 
 /* ── Section title ── */
-.sec-title{font-family:'Shippori Mincho',serif;font-size:.85rem;font-weight:600;color:var(--soil);padding:14px 16px 6px;display:flex;align-items:center;justify-content:space-between;}
+.sec-title{font-family:sans-serif;font-size:.85rem;font-weight:600;color:var(--soil);padding:14px 16px 6px;display:flex;align-items:center;justify-content:space-between;}
 .sec-sub{font-size:.68rem;color:#aaa;font-weight:400;}
 
 /* ── Filter tabs ── */
@@ -111,7 +111,7 @@ body{font-family:'Zen Maru Gothic',sans-serif;background:var(--cream);color:var(
 .detail-header{background:linear-gradient(135deg,var(--moss),var(--leaf));color:#fff;padding:14px 16px;display:flex;align-items:center;gap:10px;}
 .detail-thumb{width:52px;height:52px;border-radius:10px;object-fit:cover;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:1.8rem;flex-shrink:0;}
 .detail-thumb img{width:100%;height:100%;object-fit:cover;border-radius:10px;}
-.detail-name{font-family:'Shippori Mincho',serif;font-size:1.05rem;font-weight:600;}
+.detail-name{font-family:sans-serif;font-size:1.05rem;font-weight:600;}
 .detail-meta{font-size:.68rem;opacity:.85;margin-top:2px;}
 .action-row{display:flex;gap:8px;padding:10px 12px;}
 .action-btn{flex:1;border:none;border-radius:10px;padding:10px;cursor:pointer;font-family:inherit;font-size:.78rem;font-weight:700;display:flex;align-items:center;justify-content:center;gap:5px;}
@@ -173,7 +173,7 @@ body{font-family:'Zen Maru Gothic',sans-serif;background:var(--cream);color:var(
 @keyframes slideUp{from{opacity:0;transform:translateY(30px);}to{opacity:1;transform:none;}}
 .modal{background:#fff;border-radius:20px 20px 0 0;width:100%;max-height:90vh;overflow-y:auto;padding:16px 16px calc(16px + env(safe-area-inset-bottom));}
 .modal-handle{width:36px;height:4px;background:var(--petal);border-radius:2px;margin:0 auto 14px;}
-.modal h2{font-family:'Shippori Mincho',serif;font-size:1.05rem;margin-bottom:14px;}
+.modal h2{font-family:sans-serif;font-size:1.05rem;margin-bottom:14px;}
 .form-row{margin-bottom:12px;}
 .form-row label{display:block;font-size:.72rem;font-weight:700;color:var(--bark);margin-bottom:4px;}
 .form-row input,.form-row select,.form-row textarea{width:100%;border:1.5px solid var(--petal);border-radius:10px;padding:9px 12px;font-family:inherit;font-size:.88rem;color:var(--soil);outline:none;background:#fff;}
@@ -198,6 +198,24 @@ body{font-family:'Zen Maru Gothic',sans-serif;background:var(--cream);color:var(
 .r-dot.green{background:var(--leaf);}
 .r-text{font-size:.8rem;line-height:1.4;}
 .r-when{font-size:.65rem;color:#aaa;margin-top:2px;}
+/* 一括操作 */
+.bulk-bar{display:flex;gap:6px;padding:8px 12px;background:#fff;border-bottom:1px solid var(--petal);position:sticky;top:56px;z-index:5;}
+.bulk-btn{flex:1;border:none;border-radius:10px;padding:9px;font-family:inherit;font-size:.78rem;font-weight:700;cursor:pointer;}
+.bulk-btn.water{background:#e3f0fa;color:var(--rain);}
+.bulk-btn.fert{background:#fff8e6;color:#9a6500;}
+.bulk-btn.select-all{background:var(--cream);color:var(--bark);border:1.5px solid var(--petal);}
+.care-item-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--cream);cursor:pointer;}
+.care-item-row.selected{background:#f0f9ec;}
+.care-check{width:22px;height:22px;border-radius:6px;border:2px solid var(--petal);background:#fff;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.9rem;}
+.care-check.checked{background:var(--moss);border-color:var(--moss);color:#fff;}
+.care-overdue{border-left:3px solid var(--urgent);}
+.care-due-soon{border-left:3px solid var(--sun);}
+/* カレンダー詳細 */
+.cal-day-detail{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:150;display:flex;align-items:flex-end;}
+.cal-day-panel{background:#fff;border-radius:20px 20px 0 0;width:100%;padding:16px;max-height:60vh;overflow-y:auto;}
+/* 期限切れ強調 */
+.overdue-badge{background:#fde8e3;color:#c0392b;border-radius:6px;padding:2px 7px;font-size:.65rem;font-weight:700;}
+.due-soon-badge{background:#fff3d4;color:#9a6500;border-radius:6px;padding:2px 7px;font-size:.65rem;font-weight:700;}
 
 /* ── Lightbox ── */
 #lightbox{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:200;display:flex;align-items:center;justify-content:center;}
@@ -564,7 +582,12 @@ function renderList() {
       var lvBadge = lv==="urgent"?'<span class="badge badge-red">お世話が必要</span>':lv==="warning"?'<span class="badge badge-yellow">追肥時期</span>':'<span class="badge badge-green">順調</span>';
       html += '<div class="plant-card '+lv+'" onclick="openDetail('+p.id+')">';
       html += '<div class="card-inner">'+thumb+'<div class="card-info"><div class="card-name">'+p.name+'</div><div class="card-variety">'+p.variety+'</div><div class="card-badges">'+lvBadge+'<span class="badge-cat cat-'+(p.category||"other")+'">'+catI.icon+' '+catI.label+'</span>'+(p.photos&&p.photos.length>0?'<span class="badge badge-blue">📷'+p.photos.length+'枚</span>':'')+'</div></div></div>';
-      html += '<div class="card-care"><span class="care-chip">💧 '+daysLabel(daysSince(p.lastWatered))+' / '+p.waterDays+'日おき</span><span class="care-chip">🌱 '+daysLabel(daysSince(p.lastFertilized))+' / '+p.fertilizeDays+'日おき</span><span class="care-chip">健康 '+p.health+'%</span></div>';
+      var wd_=daysSince(p.lastWatered), fd_=daysSince(p.lastFertilized);
+      var wStyle=wd_>=p.waterDays?'background:#fde8e3;color:#c0392b;font-weight:700;':'';
+      var fStyle=fd_>=p.fertilizeDays?'background:#fff3d4;color:#9a6500;font-weight:700;':'';
+      var wLabel=wd_>=p.waterDays?'<b>'+daysLabel(wd_)+'</b>':daysLabel(wd_);
+      var fLabel=fd_>=p.fertilizeDays?'<b>'+daysLabel(fd_)+'</b>':daysLabel(fd_);
+      html += '<div class="card-care"><span class="care-chip" style="'+wStyle+'">💧 '+wLabel+' / '+p.waterDays+'日おき</span><span class="care-chip" style="'+fStyle+'">🌱 '+fLabel+' / '+p.fertilizeDays+'日おき</span><span class="care-chip">健康 '+p.health+'%</span></div>';
       html += '</div>';
     });
   }
@@ -578,76 +601,296 @@ function setFilter(cat) {
 }
 
 // ── Render Today ──────────────────────────────────────────────────────────────
+// 一括操作用の選択状態
+var todaySelected = {};  // {plantId_type: true}
+
 function renderToday() {
   var el = document.getElementById("screen-today");
-  var reminders = [];
+
+  // お世話が必要なリストを作成
+  var waterItems = [], fertItems = [];
   state.plants.forEach(function(p){
     var wd=daysSince(p.lastWatered), fd=daysSince(p.lastFertilized);
-    if(wd>=p.waterDays) reminders.push({text:p.emoji+" "+p.name+"の水やり",when:daysLabel(wd)+"から",level:wd>p.waterDays?"red":"yellow"});
-    if(fd>=p.fertilizeDays) reminders.push({text:p.emoji+" "+p.name+"の追肥時期",when:fd+"日経過",level:"yellow"});
+    if(wd>=p.waterDays) waterItems.push({p:p, days:wd, overdue: wd>p.waterDays});
+    if(fd>=p.fertilizeDays) fertItems.push({p:p, days:fd, overdue: fd>p.fertilizeDays});
   });
-  var rainDayReminder = WEATHER.find(function(w,i){return i>0&&w.rain>60;});
-  if(rainDayReminder) reminders.push({text:rainDayReminder.day+"に雨予報（"+rainDayReminder.rain+"%）。水やり調整を",when:"天気予報",level:"green"});
+  // 期限超過を先に並べる
+  waterItems.sort(function(a,b){return b.days-a.days;});
+  fertItems.sort(function(a,b){return b.days-a.days;});
 
-  var html = '<div class="top-bar"><div class="top-icon">📋</div><div><div style="font-family:\'Shippori Mincho\',serif;font-size:1.1rem;font-weight:600;">今日のお世話</div><div class="sub">'+new Date().toLocaleDateString("ja-JP",{month:"long",day:"numeric"})+'</div></div></div>';
-
-  // Weather summary
   var locName2 = state.location ? state.location.name : "東京";
   var rainDays = WEATHER.filter(function(w){return w.rain>50;}).map(function(w){return w.day+"("+w.rain+"%)";});
-  html += '<div style="margin:10px 12px;background:#f0f9ec;border:1.5px solid var(--sprout);border-radius:12px;padding:10px 13px;font-size:.78rem;line-height:1.55;">';
+
+  var html = '<div class="top-bar"><div class="top-icon">📋</div><div style="flex:1"><div style="font-family:var(--font-title,sans-serif);font-size:1.1rem;font-weight:600;">今日のお世話</div><div class="sub">'+new Date().toLocaleDateString("ja-JP",{month:"long",day:"numeric"})+'</div></div></div>';
+
+  // 天気
+  html += '<div style="margin:10px 12px 6px;background:#f0f9ec;border:1.5px solid var(--sprout);border-radius:12px;padding:9px 13px;font-size:.78rem;line-height:1.5;">';
   if(WEATHER.length===0){
     html += '<span style="color:#aaa;">天気を読み込み中...</span>';
   } else {
     html += '<span style="font-weight:700;color:var(--moss);">📍'+locName2+'</span> ';
-    html += rainDays.length>0 ? rainDays.join("・")+"に雨の予報。水やりのタイミングを調整しましょう。" : "今週は晴れが続く見込み。定期的な水やりを忘れずに。";
+    html += rainDays.length>0 ? rainDays.join("・")+"に雨の予報。水やりのタイミングを調整しましょう。" : "今週は晴れが続く見込み。";
   }
   html += '</div>';
 
-  html += '<div class="sec-title">リマインド</div>';
-  if(reminders.length===0){
-    html += '<div class="empty" style="padding:20px"><div class="e-icon">🎉</div><p>今日のお世話は完了しています！</p></div>';
-  } else {
-    reminders.forEach(function(r){
-      html += '<div class="reminder-item"><div class="r-dot '+r.level+'"></div><div><div class="r-text">'+r.text+'</div><div class="r-when">'+r.when+'</div></div></div>';
+  // ── 水やりセクション ──
+  if(waterItems.length>0){
+    var waterSelKeys = waterItems.map(function(it){return it.p.id+"_w";});
+    var allWaterSel = waterSelKeys.every(function(k){return todaySelected[k];});
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px 4px;">';
+    html += '<div style="font-family:sans-serif;font-size:.9rem;font-weight:600;">💧 水やりが必要 <span style="font-size:.75rem;color:var(--urgent);font-weight:700;">('+waterItems.length+'株)</span></div>';
+    html += '<div style="display:flex;gap:5px;">';
+    html += '<button onclick="selectAllToday(\'w\')" style="background:var(--cream);border:1.5px solid var(--petal);border-radius:8px;padding:4px 10px;font-size:.7rem;cursor:pointer;font-family:inherit;">'+(allWaterSel?"選択解除":"全選択")+'</button>';
+    html += '<button onclick="bulkWater()" style="background:#e3f0fa;color:var(--rain);border:1.5px solid var(--sky);border-radius:8px;padding:4px 10px;font-size:.7rem;font-weight:700;cursor:pointer;font-family:inherit;">まとめて記録</button>';
+    html += '</div></div>';
+    waterItems.forEach(function(it){
+      var k=it.p.id+"_w", sel=todaySelected[k];
+      var rowCls = it.overdue ? "care-item-row care-overdue" : "care-item-row care-due-soon";
+      html += '<div class="'+rowCls+(sel?' selected':'')+' today-row" data-id="'+it.p.id+'" data-type="w" onclick="handleTodayRow(event)">';
+      html += '<div class="care-check'+(sel?" checked":"")+'">'+( sel?"✓":"")+'</div>';
+      html += '<div style="flex:1"><div style="font-size:.82rem;font-weight:700;">'+it.p.emoji+' '+it.p.name+'</div>';
+      html += '<div style="font-size:.68rem;color:#888;">'+it.p.variety+'</div></div>';
+      html += it.overdue
+        ? '<span class="overdue-badge">'+it.days+'日超過</span>'
+        : '<span class="due-soon-badge">本日</span>';
+      html += '</div>';
     });
   }
 
-  // Mini calendar
-  html += '<div class="sec-title">カレンダー</div>';
-  html += '<div style="padding:0 12px 10px;">'+buildCalendar()+'</div>';
+  // ── 追肥セクション ──
+  if(fertItems.length>0){
+    var fertSelKeys = fertItems.map(function(it){return it.p.id+"_f";});
+    var allFertSel = fertSelKeys.every(function(k){return todaySelected[k];});
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 12px 4px;">';
+    html += '<div style="font-family:sans-serif;font-size:.9rem;font-weight:600;">🌱 追肥が必要 <span style="font-size:.75rem;color:var(--sun);font-weight:700;">('+fertItems.length+'株)</span></div>';
+    html += '<div style="display:flex;gap:5px;">';
+    html += '<button onclick="selectAllToday(\'f\')" style="background:var(--cream);border:1.5px solid var(--petal);border-radius:8px;padding:4px 10px;font-size:.7rem;cursor:pointer;font-family:inherit;">'+(allFertSel?"選択解除":"全選択")+'</button>';
+    html += '<button onclick="bulkFert()" style="background:#fff8e6;color:#9a6500;border:1.5px solid var(--sun);border-radius:8px;padding:4px 10px;font-size:.7rem;font-weight:700;cursor:pointer;font-family:inherit;">まとめて記録</button>';
+    html += '</div></div>';
+    fertItems.forEach(function(it){
+      var k=it.p.id+"_f", sel=todaySelected[k];
+      var rowCls = it.overdue ? "care-item-row care-overdue" : "care-item-row care-due-soon";
+      html += '<div class="'+rowCls+(sel?' selected':'')+' today-row" data-id="'+it.p.id+'" data-type="f" onclick="handleTodayRow(event)">';
+      html += '<div class="care-check'+(sel?" checked":"")+'">'+( sel?"✓":"")+'</div>';
+      html += '<div style="flex:1"><div style="font-size:.82rem;font-weight:700;">'+it.p.emoji+' '+it.p.name+'</div>';
+      html += '<div style="font-size:.68rem;color:#888;">'+it.p.variety+'</div></div>';
+      html += it.overdue
+        ? '<span class="overdue-badge">'+it.days+'日超過</span>'
+        : '<span class="due-soon-badge">本日</span>';
+      html += '</div>';
+    });
+  }
+
+  if(waterItems.length===0 && fertItems.length===0){
+    html += '<div class="empty" style="padding:24px"><div class="e-icon">🎉</div><p>今日のお世話はすべて完了！</p></div>';
+  }
+
+  // ── カレンダー ──
+  html += '<div class="sec-title" style="margin-top:8px;">📅 今月のお世話カレンダー</div>';
+  html += '<div style="padding:0 12px 16px;">'+buildCalendarDetail()+'</div>';
 
   el.innerHTML = html;
 }
 
-function buildCalendar() {
-  var now=new Date(), yr=now.getFullYear(), mo=now.getMonth();
-  var firstDow=new Date(yr,mo,1).getDay(), dim=new Date(yr,mo+1,0).getDate();
-  var eventDays=new Set();
+function handleTodayRow(e){
+  var el=e.currentTarget;
+  var id=parseInt(el.dataset.id), type=el.dataset.type;
+  toggleTodaySelect(id,type);
+}
+function toggleTodaySelect(id, type){
+  var k = id+"_"+type;
+  todaySelected[k] = !todaySelected[k];
+  renderToday();
+}
+
+function selectAllToday(type){
+  var items = type==="w"
+    ? state.plants.filter(function(p){return daysSince(p.lastWatered)>=p.waterDays;})
+    : state.plants.filter(function(p){return daysSince(p.lastFertilized)>=p.fertilizeDays;});
+  var keys = items.map(function(p){return p.id+"_"+type;});
+  var allSel = keys.every(function(k){return todaySelected[k];});
+  keys.forEach(function(k){ todaySelected[k] = !allSel; });
+  renderToday();
+}
+
+function bulkWater(){
+  var ids = Object.keys(todaySelected).filter(function(k){return k.endsWith("_w")&&todaySelected[k];}).map(function(k){return parseInt(k);});
+  if(ids.length===0){ showToast("水やりする植物を選択してください"); return; }
   state.plants.forEach(function(p){
-    for(var i=1;i<=30;i++){
-      var d=new Date(p.lastWatered); d.setDate(d.getDate()+i*p.waterDays);
-      if(d.getFullYear()===yr&&d.getMonth()===mo) eventDays.add(d.getDate());
+    if(ids.indexOf(p.id)>=0){
+      p.lastWatered=todayStr();
+      p.logs=(p.logs||[]).concat([{date:todayStr(),note:"水やり記録（一括）"}]);
     }
   });
+  ids.forEach(function(id){ delete todaySelected[id+"_w"]; });
+  savePlants();
+  renderToday();
+  renderList();
+  showToast(ids.length+"株の水やりを記録しました");
+}
+
+function bulkFert(){
+  var ids = Object.keys(todaySelected).filter(function(k){return k.endsWith("_f")&&todaySelected[k];}).map(function(k){return parseInt(k);});
+  if(ids.length===0){ showToast("追肥する植物を選択してください"); return; }
+  state.plants.forEach(function(p){
+    if(ids.indexOf(p.id)>=0){
+      p.lastFertilized=todayStr();
+      p.logs=(p.logs||[]).concat([{date:todayStr(),note:"追肥記録（一括）"}]);
+    }
+  });
+  ids.forEach(function(id){ delete todaySelected[id+"_f"]; });
+  savePlants();
+  renderToday();
+  renderList();
+  showToast(ids.length+"株の追肥を記録しました");
+}
+
+function buildCalendar() { return buildCalendarDetail(); }
+
+function buildCalendarDetail() {
+  var now=new Date(), yr=now.getFullYear(), mo=now.getMonth();
+  var firstDow=new Date(yr,mo,1).getDay(), dim=new Date(yr,mo+1,0).getDate();
+
+  // 日付ごとのお世話リストを作成
+  var dayMap = {};  // {day: [{p, type, label}]}
+  state.plants.forEach(function(p){
+    // 水やり予定
+    for(var i=0;i<=60;i++){
+      var d=new Date(p.lastWatered); d.setDate(d.getDate()+i*p.waterDays);
+      if(d.getFullYear()===yr&&d.getMonth()===mo){
+        var day=d.getDate();
+        if(!dayMap[day]) dayMap[day]=[];
+        dayMap[day].push({p:p, type:"w", label:p.emoji+" "+p.name+" 水やり"});
+      }
+    }
+    // 追肥予定
+    for(var j=0;j<=60;j++){
+      var d2=new Date(p.lastFertilized); d2.setDate(d2.getDate()+j*p.fertilizeDays);
+      if(d2.getFullYear()===yr&&d2.getMonth()===mo){
+        var day2=d2.getDate();
+        if(!dayMap[day2]) dayMap[day2]=[];
+        dayMap[day2].push({p:p, type:"f", label:p.emoji+" "+p.name+" 追肥"});
+      }
+    }
+  });
+
   var html='<div style="background:#fff;border-radius:12px;padding:10px;border:1.5px solid var(--petal);">';
   html+='<div style="text-align:center;font-weight:700;font-size:.85rem;margin-bottom:8px;">'+yr+'年'+(mo+1)+'月</div>';
-  html+='<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;">';
-  ["日","月","火","水","木","金","土"].forEach(function(d){html+='<div style="text-align:center;font-size:.58rem;color:#aaa;padding:2px;">'+d+'</div>';});
+  html+='<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;">';
+  ["日","月","火","水","木","金","土"].forEach(function(d){
+    html+='<div style="text-align:center;font-size:.58rem;color:#aaa;padding:2px;">'+d+'</div>';
+  });
   for(var i=0;i<firstDow;i++) html+='<div></div>';
   for(var day=1;day<=dim;day++){
-    var isT=day===now.getDate();
-    var hasE=eventDays.has(day)&&!isT;
-    var style=isT?'background:var(--moss);color:#fff;font-weight:700;border-radius:50%;':'';
-    if(hasE) style+='position:relative;';
-    html+='<div style="text-align:center;font-size:.72rem;aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:50%;'+style+'">';
+    var isToday=day===now.getDate();
+    var items=dayMap[day]||[];
+    var hasW=items.some(function(it){return it.type==="w";});
+    var hasF=items.some(function(it){return it.type==="f";});
+    var isPast=day<now.getDate();
+    var bg=isToday?"var(--moss)":"transparent";
+    var col=isToday?"#fff":isPast&&items.length>0?"#ccc":"var(--soil)";
+    var clickAttr=items.length>0?'onclick="showCalDayDetail('+day+')" style="cursor:pointer;"':'';
+    html+='<div '+clickAttr+' style="text-align:center;font-size:.72rem;aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:8px;background:'+bg+';color:'+col+';'+(items.length>0&&!isToday?"background:#f9f9f9;":"")+'">';
     html+=day;
-    if(hasE) html+='<span style="position:absolute;bottom:1px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:var(--sun);display:block;"></span>';
+    if(items.length>0){
+      html+='<div style="display:flex;gap:1px;margin-top:1px;">';
+      if(hasW) html+='<span style="width:5px;height:5px;border-radius:50%;background:'+(isPast?"#ccc":"var(--sky)")+';display:block;"></span>';
+      if(hasF) html+='<span style="width:5px;height:5px;border-radius:50%;background:'+(isPast?"#ccc":"var(--sun)")+';display:block;"></span>';
+      html+='</div>';
+    }
     html+='</div>';
   }
   html+='</div>';
-  html+='<div style="font-size:.6rem;color:#aaa;margin-top:6px;display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--sun);"></span>お世話予定日</div>';
-  html+='</div>';
+  html+='<div style="font-size:.6rem;color:#888;margin-top:8px;display:flex;gap:10px;align-items:center;">';
+  html+='<span style="display:flex;align-items:center;gap:3px;"><span style="width:7px;height:7px;border-radius:50%;background:var(--sky);display:inline-block;"></span>水やり</span>';
+  html+='<span style="display:flex;align-items:center;gap:3px;"><span style="width:7px;height:7px;border-radius:50%;background:var(--sun);display:inline-block;"></span>追肥</span>';
+  html+='<span style="color:#aaa;">日付タップで詳細</span>';
+  html+='</div></div>';
+
+  // 日付別の詳細パネルのデータをstateに保存
+  state._calDayMap = dayMap;
+  state._calYrMo = {yr:yr, mo:mo};
   return html;
+}
+
+function closeCalPanel(){ var el=document.getElementById("cal-detail-panel"); if(el) el.style.display="none"; }
+
+function showCalDayDetail(day){
+  var items = (state._calDayMap||{})[day]||[];
+  if(items.length===0) return;
+  var cal = state._calYrMo||{};
+  var dateStr = cal.yr+"年"+(cal.mo+1)+"月"+day+"日";
+
+  var el = document.getElementById("cal-detail-panel");
+  if(!el){
+    el=document.createElement("div");
+    el.id="cal-detail-panel";
+    el.className="cal-day-detail";
+    document.body.appendChild(el);
+  }
+  el.style.display="flex";
+
+  var html='<div class="cal-day-panel">';
+  html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">';
+  html+='<div style="font-family:sans-serif;font-size:1rem;font-weight:600;">'+dateStr+'のお世話</div>';
+  html+='<button onclick="closeCalPanel()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:#aaa;">✕</button>';
+  html+='</div>';
+
+  // 水やりと追肥を分けて表示
+  var wItems=items.filter(function(it){return it.type==="w";});
+  var fItems=items.filter(function(it){return it.type==="f";});
+
+  if(wItems.length>0){
+    html+='<div style="font-size:.8rem;font-weight:700;color:var(--rain);margin-bottom:6px;">💧 水やり ('+wItems.length+'株)</div>';
+    wItems.forEach(function(it){
+      html+='<div style="display:flex;align-items:center;gap:8px;padding:8px;background:#e3f0fa;border-radius:10px;margin-bottom:5px;">';
+      html+='<span style="font-size:1.2rem;">'+it.p.emoji+'</span>';
+      html+='<div><div style="font-size:.82rem;font-weight:700;">'+it.p.name+'</div><div style="font-size:.68rem;color:#888;">'+it.p.variety+'</div></div>';
+      html+='<button onclick="doWater('+it.p.id+');closeCalPanel();" style="margin-left:auto;background:var(--rain);color:#fff;border:none;border-radius:8px;padding:5px 10px;font-size:.72rem;cursor:pointer;font-family:inherit;">記録</button>';
+      html+='</div>';
+    });
+  }
+  if(fItems.length>0){
+    html+='<div style="font-size:.8rem;font-weight:700;color:#9a6500;margin-bottom:6px;margin-top:'+(wItems.length>0?"10px":"0")+';">🌱 追肥 ('+fItems.length+'株)</div>';
+    fItems.forEach(function(it){
+      html+='<div style="display:flex;align-items:center;gap:8px;padding:8px;background:#fff8e6;border-radius:10px;margin-bottom:5px;">';
+      html+='<span style="font-size:1.2rem;">'+it.p.emoji+'</span>';
+      html+='<div><div style="font-size:.82rem;font-weight:700;">'+it.p.name+'</div><div style="font-size:.68rem;color:#888;">'+it.p.variety+'</div></div>';
+      html+='<button onclick="doFertilize('+it.p.id+');closeCalPanel();" style="margin-left:auto;background:var(--sun);color:#fff;border:none;border-radius:8px;padding:5px 10px;font-size:.72rem;cursor:pointer;font-family:inherit;">記録</button>';
+      html+='</div>';
+    });
+  }
+
+  // 一括ボタン
+  html+='<div style="display:flex;gap:8px;margin-top:12px;">';
+  if(wItems.length>0) html+='<button onclick="bulkWaterList(['+wItems.map(function(it){return it.p.id;}).join(",")+']);closeCalPanel();" style="flex:1;background:#e3f0fa;color:var(--rain);border:1.5px solid var(--sky);border-radius:10px;padding:10px;font-family:inherit;font-size:.8rem;font-weight:700;cursor:pointer;">💧 水やり一括記録</button>';
+  if(fItems.length>0) html+='<button onclick="bulkFertList(['+fItems.map(function(it){return it.p.id;}).join(",")+']);closeCalPanel();" style="flex:1;background:#fff8e6;color:#9a6500;border:1.5px solid var(--sun);border-radius:10px;padding:10px;font-family:inherit;font-size:.8rem;font-weight:700;cursor:pointer;">🌱 追肥一括記録</button>';
+  html+='</div></div>';
+
+  el.innerHTML=html;
+  el.onclick=function(e){ if(e.target===el) el.style.display="none"; };
+}
+
+function bulkWaterList(ids){
+  state.plants.forEach(function(p){
+    if(ids.indexOf(p.id)>=0){
+      p.lastWatered=todayStr();
+      p.logs=(p.logs||[]).concat([{date:todayStr(),note:"水やり記録（一括）"}]);
+    }
+  });
+  savePlants(); renderToday(); renderList();
+  showToast(ids.length+"株の水やりを記録しました");
+}
+
+function bulkFertList(ids){
+  state.plants.forEach(function(p){
+    if(ids.indexOf(p.id)>=0){
+      p.lastFertilized=todayStr();
+      p.logs=(p.logs||[]).concat([{date:todayStr(),note:"追肥記録（一括）"}]);
+    }
+  });
+  savePlants(); renderToday(); renderList();
+  showToast(ids.length+"株の追肥を記録しました");
 }
 
 // ── Render Detail ─────────────────────────────────────────────────────────────
@@ -1283,8 +1526,34 @@ function useCurrentLocation(){
 // ── Firebase Auth ─────────────────────────────────────────────────────────────
 function firebaseSignIn(){
   if(!window._fb){ showToast("Firebaseの設定が必要です"); return; }
-  window._fb.auth.signInWithRedirect(window._fb.provider)
-    .catch(function(e){ showToast("ログインに失敗しました: " + e.message); });
+  var isMobile = /iphone|ipad|ipod|android/i.test(navigator.userAgent);
+  if(isMobile){
+    // スマホ：リダイレクト方式
+    window._fb.auth.signInWithRedirect(window._fb.provider)
+      .catch(function(e){ showToast("ログインに失敗しました: " + e.message); });
+  } else {
+    // PC：ポップアップ方式
+    window._fb.auth.signInWithPopup(window._fb.provider)
+      .then(function(result){
+        if(result && result.user){
+          state_uid = result.user.uid;
+          showToast(result.user.displayName + " でログインしました");
+          renderList();
+          loadFromFirestore(result.user.uid);
+        }
+      })
+      .catch(function(e){
+        var user = window._fb.auth.currentUser;
+        if(user){
+          state_uid = user.uid;
+          showToast("ログインしました");
+          renderList();
+          loadFromFirestore(user.uid);
+        } else {
+          showToast("ログインに失敗しました: " + e.code);
+        }
+      });
+  }
 }
 
 function firebaseSignOut(){
@@ -1314,25 +1583,44 @@ function firebaseSignOut(){
   // Firebase Auth 状態監視（SDKロード後に実行）
   function initFirebaseAuth(){
     if(!window._fb){ setTimeout(initFirebaseAuth, 200); return; }
-    // リダイレクト後のログイン結果を処理
-    window._fb.auth.getRedirectResult().then(function(result){
-      if(result && result.user){
-        showToast(result.user.displayName + " でログインしました");
-      }
-    }).catch(function(e){
-      console.warn("redirect result error:", e.code);
-    });
-    // Auth状態の監視
+
+    // onAuthStateChanged を最優先で設定
     window._fb.auth.onAuthStateChanged(async function(user){
+      console.log("onAuthStateChanged:", user ? user.uid : "null");
       if(user){
         state_uid = user.uid;
         renderList();
         await loadFromFirestore(user.uid);
+        // ログイン後に保存もトリガー（スマホのデータをクラウドに）
+        if(state.plants && state.plants.length > 0){
+          savePlants();
+        }
       } else {
         state_uid = null;
         renderList();
       }
     });
+
+    // リダイレクト後の結果を処理
+    window._fb.auth.getRedirectResult().then(function(result){
+      if(result && result.user){
+        console.log("getRedirectResult success:", result.user.uid);
+        showToast(result.user.displayName + " でログインしました");
+        state_uid = result.user.uid;
+        renderList();
+      }
+    }).catch(function(e){
+      console.warn("getRedirectResult error:", e.code, e.message);
+    });
+
+    // currentUserが既にある場合（リロード時）
+    var currentUser = window._fb.auth.currentUser;
+    if(currentUser && !state_uid){
+      console.log("currentUser found:", currentUser.uid);
+      state_uid = currentUser.uid;
+      renderList();
+      loadFromFirestore(currentUser.uid);
+    }
   }
   initFirebaseAuth();
 

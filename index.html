@@ -251,6 +251,22 @@ body{font-family:'Zen Maru Gothic',sans-serif;background:var(--cream);color:var(
 
 /* ── Saving indicator ── */
 .saving{font-size:.65rem;color:var(--sprout);opacity:.8;}
+/* ── Chat ── */
+.chat-msg{display:flex;gap:8px;padding:8px 12px;align-items:flex-end;}
+.chat-msg.user{flex-direction:row-reverse;}
+.chat-bubble{max-width:78%;padding:10px 13px;border-radius:16px;font-size:.82rem;line-height:1.55;}
+.chat-msg.ai .chat-bubble{background:#fff;border:1.5px solid var(--petal);border-bottom-left-radius:4px;}
+.chat-msg.user .chat-bubble{background:var(--moss);color:#fff;border-bottom-right-radius:4px;}
+.chat-avatar{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;background:var(--cream);}
+.chat-input-bar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:560px;background:#fff;border-top:1px solid var(--petal);padding:8px 12px calc(8px + env(safe-area-inset-bottom));display:flex;gap:8px;z-index:20;}
+.chat-input-bar textarea{flex:1;border:1.5px solid var(--petal);border-radius:12px;padding:9px 12px;font-family:inherit;font-size:.85rem;resize:none;outline:none;max-height:100px;line-height:1.4;}
+.chat-input-bar textarea:focus{border-color:var(--leaf);}
+.chat-send-btn{background:var(--moss);color:#fff;border:none;border-radius:12px;padding:10px 14px;cursor:pointer;font-size:1rem;flex-shrink:0;}
+.chat-typing{display:flex;gap:4px;align-items:center;padding:6px 10px;}
+.chat-typing span{width:6px;height:6px;border-radius:50%;background:var(--petal);animation:typing 1.2s infinite;}
+.chat-typing span:nth-child(2){animation-delay:.2s;}
+.chat-typing span:nth-child(3){animation-delay:.4s;}
+@keyframes typing{0%,60%,100%{transform:translateY(0);}30%{transform:translateY(-6px);}}
 </style>
 </head>
 <body>
@@ -259,6 +275,7 @@ body{font-family:'Zen Maru Gothic',sans-serif;background:var(--cream);color:var(
   <div id="screen-today" class="screen hidden"></div>
   <div id="screen-detail" class="screen hidden"></div>
   <div id="screen-add" class="hidden"></div>
+  <div id="screen-chat" class="screen hidden"></div>
   <div id="lightbox" class="hidden"><button class="lb-close" onclick="closeLightbox()">✕</button><img id="lb-img" src="" alt=""></div>
   <div id="toast"></div>
 
@@ -268,6 +285,9 @@ body{font-family:'Zen Maru Gothic',sans-serif;background:var(--cream);color:var(
     </button>
     <button class="nav-btn" data-screen="today" onclick="showScreen('today')">
       <span class="nav-icon">📋</span><span>今日のお世話</span>
+    </button>
+    <button class="nav-btn" data-screen="chat" onclick="showScreen('chat')">
+      <span class="nav-icon">🤖</span><span>AI相談</span>
     </button>
     <button class="nav-btn" data-screen="add" onclick="openAddModal()">
       <span class="nav-icon">➕</span><span>追加</span>
@@ -497,7 +517,7 @@ function compressImage(file, maxW, quality) {
 
 // ── Navigation ────────────────────────────────────────────────────────────────
 function showScreen(name) {
-  ["list","today","detail"].forEach(function(s){
+  ["list","today","detail","chat"].forEach(function(s){
     document.getElementById("screen-"+s).classList.toggle("hidden", s!==name);
   });
   document.querySelectorAll(".nav-btn").forEach(function(b){
@@ -506,6 +526,7 @@ function showScreen(name) {
   state.currentScreen = name;
   if(name==="list") renderList();
   if(name==="today") renderToday();
+  if(name==="chat") renderChat();
 }
 
 function openDetail(id) {
@@ -517,6 +538,129 @@ function openDetail(id) {
   document.getElementById("screen-today").classList.add("hidden");
   document.getElementById("screen-detail").classList.remove("hidden");
   document.querySelectorAll(".nav-btn").forEach(function(b){ b.classList.remove("active"); });
+}
+
+
+// ── AI相談チャット ─────────────────────────────────────────────────────────────
+var chatHistory = [];  // {role, content}
+
+function renderChat(){
+  var el = document.getElementById("screen-chat");
+  if(!el) return;
+
+  // 植物の情報をサマリー化してコンテキストに使う
+  var plantsSummary = state.plants.map(function(p){
+    return p.emoji+p.name+"("+p.variety+") 水やり:"+p.waterDays+"日おき 追肥:"+p.fertilizeDays+"日おき 健康:"+p.health+"%";
+  }).join(", ");
+
+  var html = '<div class="top-bar"><div class="top-icon">🤖</div><div style="flex:1"><div style="font-family:Shippori Mincho,serif;font-size:1.1rem;font-weight:600;">AI相談</div><div class="sub">家庭菜園アドバイザー</div></div>';
+  html += '<button onclick="clearChat()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:20px;padding:4px 10px;font-size:.65rem;cursor:pointer;font-family:inherit;">クリア</button>';
+  html += '</div>';
+
+  // メッセージ一覧
+  html += '<div id="chat-messages" style="padding:10px 0 80px;">';
+
+  if(chatHistory.length === 0){
+    // ウェルカムメッセージ
+    html += '<div class="chat-msg ai"><div class="chat-avatar">🌿</div><div class="chat-bubble">こんにちは！家庭菜園アドバイザーです。<br><br>現在 <b>'+state.plants.length+'株</b> を管理中ですね。病気・害虫・肥料・水やりなど、なんでも気軽に相談してください！<br><br>例えば：<br>・葉が黄色くなってきた<br>・実がなかなか大きくならない<br>・おすすめの肥料を教えて</div></div>';
+  } else {
+    chatHistory.forEach(function(m){
+      if(m.role === "user"){
+        html += '<div class="chat-msg user"><div class="chat-bubble">'+escapeHtml(m.content)+'</div></div>';
+      } else {
+        html += '<div class="chat-msg ai"><div class="chat-avatar">🌿</div><div class="chat-bubble">'+(m.content.split('\n').join('<br>'))+'</div></div>';
+      }
+    });
+  }
+  html += '</div>';
+
+  // 入力バー
+  html += '<div class="chat-input-bar">';
+  html += '<textarea id="chat-input" placeholder="質問を入力..." rows="1" onkeydown="handleChatKey(event)"></textarea>';
+  html += '<button class="chat-send-btn" onclick="sendChat()">↑</button>';
+  html += '</div>';
+
+  el.innerHTML = html;
+
+  // 一番下にスクロール
+  setTimeout(function(){
+    var msgs = document.getElementById("chat-messages");
+    if(msgs) msgs.scrollTop = msgs.scrollHeight;
+  }, 50);
+}
+
+function escapeHtml(str){
+  return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+
+function clearChat(){
+  chatHistory = [];
+  renderChat();
+}
+
+function handleChatKey(e){ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); sendChat(); } }
+
+async function sendChat(){
+  var input = document.getElementById("chat-input");
+  if(!input) return;
+  var msg = input.value.trim();
+  if(!msg) return;
+
+  // ユーザーメッセージを追加
+  chatHistory.push({role:"user", content:msg});
+  input.value = "";
+  input.style.height = "auto";
+
+  // タイピングインジケーター
+  var msgs = document.getElementById("chat-messages");
+  if(msgs){
+    var typing = document.createElement("div");
+    typing.className = "chat-msg ai";
+    typing.id = "chat-typing";
+    typing.innerHTML = '<div class="chat-avatar">🌿</div><div class="chat-bubble"><div class="chat-typing"><span></span><span></span><span></span></div></div>';
+    msgs.appendChild(typing);
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+
+  // 植物情報をシステムプロンプトに含める
+  var plantsSummary = state.plants.length > 0
+    ? "現在管理中の植物：" + state.plants.map(function(p){
+        return p.emoji+p.name+"("+p.variety+") 水やり:"+p.waterDays+"日おき 追肥:"+p.fertilizeDays+"日おき 健康度:"+p.health+"% 日当たり:"+p.sunlight;
+      }).join("、")
+    : "植物未登録";
+
+  var weather = WEATHER.length > 0
+    ? "今日の天気："+WEATHER[0].icon+" "+WEATHER[0].temp+" 降水確率"+WEATHER[0].rain+"%"
+    : "";
+
+  var systemPrompt = "あなたは親切で知識豊富な家庭菜園アドバイザーです。ユーザーの植物の状態に基づいて、具体的で実践的なアドバイスをします。回答は簡潔に、スマートフォンで読みやすい長さにしてください。\n\n" + plantsSummary + "\n" + weather;
+
+  // API呼び出し用のメッセージ履歴（最新10件まで）
+  var messages = chatHistory.slice(-10).map(function(m){
+    return {role: m.role, content: m.content};
+  });
+
+  try {
+    var data = await callClaude(messages, 800);
+    var reply = (data.content||[]).map(function(c){return c.text||"";}).join("") || "すみません、回答を取得できませんでした。";
+
+    // タイピングを削除してレスポンス表示
+    var typingEl = document.getElementById("chat-typing");
+    if(typingEl) typingEl.remove();
+
+    chatHistory.push({role:"assistant", content:reply});
+    renderChat();
+  } catch(e) {
+    var typingEl = document.getElementById("chat-typing");
+    if(typingEl) typingEl.remove();
+
+    if(e.message === "Invalid API key"){
+      chatHistory.push({role:"assistant", content:"APIキーが設定されていないか無効です。植物詳細画面の🔑ボタンからAPIキーを設定してください。"});
+    } else {
+      chatHistory.push({role:"assistant", content:"エラーが発生しました。もう一度お試しください。"});
+    }
+    renderChat();
+  }
 }
 
 function backToList() {
@@ -1660,6 +1804,7 @@ function firebaseSignOut(){
   // 天気をバックグラウンドで取得
   fetchWeather(loc.lat, loc.lon).then(function(ok){
     if(ok){
+      checkRainAndResetWatering();
       renderList();
       if(state.currentScreen==="today") renderToday();
     }
@@ -1667,7 +1812,7 @@ function firebaseSignOut(){
 
   // Firebase Auth 状態監視（SDKロード後に実行）
   function initFirebaseAuth(){
-    if(!window._fb){ setTimeout(initFirebaseAuth, 200); return; }
+    if(!window._fb){ setTimeout(initFirebaseAuth, 500); return; }
 
     // onAuthStateChanged を最優先で設定
     window._fb.auth.onAuthStateChanged(async function(user){
@@ -1686,26 +1831,37 @@ function firebaseSignOut(){
       }
     });
 
-    // リダイレクト後の結果を処理
+    // リダイレクト後の結果を処理（スマホ対応）
     window._fb.auth.getRedirectResult().then(function(result){
       if(result && result.user){
         console.log("getRedirectResult success:", result.user.uid);
         showToast(result.user.displayName + " でログインしました");
-        state_uid = result.user.uid;
-        renderList();
+        // onAuthStateChangedで処理されるので不要だが念のため
+        if(!state_uid){
+          state_uid = result.user.uid;
+          renderList();
+          loadFromFirestore(result.user.uid);
+        }
+      } else {
+        // リダイレクト結果なし - currentUserを確認
+        var cu = window._fb.auth.currentUser;
+        if(cu && !state_uid){
+          console.log("currentUser after redirect:", cu.uid);
+          state_uid = cu.uid;
+          renderList();
+          loadFromFirestore(cu.uid);
+        }
       }
     }).catch(function(e){
       console.warn("getRedirectResult error:", e.code, e.message);
+      // エラーでもcurrentUserを確認
+      var cu = window._fb.auth.currentUser;
+      if(cu && !state_uid){
+        state_uid = cu.uid;
+        renderList();
+        loadFromFirestore(cu.uid);
+      }
     });
-
-    // currentUserが既にある場合（リロード時）
-    var currentUser = window._fb.auth.currentUser;
-    if(currentUser && !state_uid){
-      console.log("currentUser found:", currentUser.uid);
-      state_uid = currentUser.uid;
-      renderList();
-      loadFromFirestore(currentUser.uid);
-    }
   }
   initFirebaseAuth();
 

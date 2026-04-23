@@ -1556,6 +1556,88 @@ function firebaseSignIn(){
   }
 }
 
+// ── データエクスポート/インポート ──────────────────────────────────────────────
+function exportData(){
+  var data = JSON.stringify(state.plants);
+  // テキストエリアに表示してコピーできるようにする
+  var el = document.getElementById("export-modal");
+  if(!el){
+    el = document.createElement("div");
+    el.id = "export-modal";
+    el.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:flex-end;";
+    document.body.appendChild(el);
+  }
+  el.style.display = "flex";
+  el.innerHTML = '<div style="background:#fff;border-radius:20px 20px 0 0;width:100%;padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom));">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">'
+    + '<div style="font-weight:700;font-size:.95rem;">📤 データのバックアップ</div>'
+    + '<button onclick="document.getElementById('export-modal').style.display='none'" style="background:none;border:none;font-size:1.2rem;cursor:pointer;">✕</button>'
+    + '</div>'
+    + '<div style="font-size:.75rem;color:#888;margin-bottom:8px;">下のテキストを全選択してコピーしてください</div>'
+    + '<textarea id="export-text" style="width:100%;height:120px;border:1.5px solid var(--petal);border-radius:10px;padding:8px;font-size:.7rem;font-family:monospace;" readonly>' + data + '</textarea>'
+    + '<div style="display:flex;gap:8px;margin-top:10px;">'
+    + '<button onclick="copyExportData()" style="flex:1;background:var(--moss);color:#fff;border:none;border-radius:10px;padding:11px;font-family:inherit;font-size:.85rem;font-weight:700;cursor:pointer;">📋 コピー</button>'
+    + '<button onclick="openImportModal()" style="flex:1;background:var(--cream);color:var(--soil);border:1.5px solid var(--petal);border-radius:10px;padding:11px;font-family:inherit;font-size:.85rem;cursor:pointer;">📥 インポート</button>'
+    + '</div></div>';
+  el.onclick = function(e){ if(e.target===el) el.style.display="none"; };
+}
+
+function copyExportData(){
+  var ta = document.getElementById("export-text");
+  if(ta){
+    ta.select();
+    try {
+      document.execCommand("copy");
+      showToast("コピーしました！");
+    } catch(e) {
+      // モバイルのフォールバック
+      navigator.clipboard.writeText(ta.value).then(function(){
+        showToast("コピーしました！");
+      }).catch(function(){
+        showToast("テキストを手動でコピーしてください");
+      });
+    }
+  }
+}
+
+function openImportModal(){
+  document.getElementById("export-modal").style.display="none";
+  var el = document.getElementById("import-modal");
+  if(!el){
+    el = document.createElement("div");
+    el.id = "import-modal";
+    el.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:flex-end;";
+    document.body.appendChild(el);
+  }
+  el.style.display = "flex";
+  el.innerHTML = '<div style="background:#fff;border-radius:20px 20px 0 0;width:100%;padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom));">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">'
+    + '<div style="font-weight:700;font-size:.95rem;">📥 データのインポート</div>'
+    + '<button onclick="document.getElementById('import-modal').style.display='none'" style="background:none;border:none;font-size:1.2rem;cursor:pointer;">✕</button>'
+    + '</div>'
+    + '<div style="font-size:.75rem;color:#888;margin-bottom:8px;">バックアップデータを貼り付けてください</div>'
+    + '<textarea id="import-text" style="width:100%;height:120px;border:1.5px solid var(--petal);border-radius:10px;padding:8px;font-size:.7rem;font-family:monospace;" placeholder="ここにバックアップデータを貼り付け..."></textarea>'
+    + '<button onclick="doImport()" style="width:100%;background:var(--moss);color:#fff;border:none;border-radius:10px;padding:11px;font-family:inherit;font-size:.85rem;font-weight:700;cursor:pointer;margin-top:10px;">インポートする</button>'
+    + '</div>';
+  el.onclick = function(e){ if(e.target===el) el.style.display="none"; };
+}
+
+function doImport(){
+  var ta = document.getElementById("import-text");
+  if(!ta || !ta.value.trim()){ showToast("データを入力してください"); return; }
+  try {
+    var plants = JSON.parse(ta.value.trim());
+    if(!Array.isArray(plants)){ throw new Error("Invalid format"); }
+    state.plants = plants;
+    savePlants();
+    document.getElementById("import-modal").style.display="none";
+    renderList();
+    showToast(plants.length + "株のデータをインポートしました");
+  } catch(e) {
+    showToast("データの形式が正しくありません");
+  }
+}
+
 function firebaseSignOut(){
   if(!window._fb) return;
   window._fb.auth.signOut().then(function(){

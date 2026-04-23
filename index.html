@@ -83,6 +83,7 @@ body{font-family:'Zen Maru Gothic',sans-serif;background:var(--cream);color:var(
 .cat-tree{background:#e8f0e0;color:#3a5020;}
 .cat-herb{background:#f0f8e8;color:#4a6030;}
 .cat-flower{background:#fce8f8;color:#8b2080;}
+.cat-hydroponic{background:#e0f0ff;color:#006080;}
 .cat-other{background:#f0f0f0;color:#555;}
 .card-care{display:flex;gap:6px;padding:0 12px 10px;flex-wrap:wrap;}
 .care-chip{font-size:.65rem;background:var(--cream);padding:2px 8px;border-radius:20px;color:#666;}
@@ -258,7 +259,7 @@ body{font-family:'Zen Maru Gothic',sans-serif;background:var(--cream);color:var(
 .chat-msg.ai .chat-bubble{background:#fff;border:1.5px solid var(--petal);border-bottom-left-radius:4px;}
 .chat-msg.user .chat-bubble{background:var(--moss);color:#fff;border-bottom-right-radius:4px;}
 .chat-avatar{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;background:var(--cream);}
-.chat-input-bar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:560px;background:#fff;border-top:1px solid var(--petal);padding:8px 12px calc(8px + env(safe-area-inset-bottom));display:flex;gap:8px;z-index:20;}
+.chat-input-bar{position:sticky;bottom:0;background:#fff;border-top:1px solid var(--petal);padding:8px 12px calc(8px + env(safe-area-inset-bottom));display:flex;gap:8px;z-index:5;}
 .chat-input-bar textarea{flex:1;border:1.5px solid var(--petal);border-radius:12px;padding:9px 12px;font-family:inherit;font-size:.85rem;resize:none;outline:none;max-height:100px;line-height:1.4;}
 .chat-input-bar textarea:focus{border-color:var(--leaf);}
 .chat-send-btn{background:var(--moss);color:#fff;border:none;border-radius:12px;padding:10px 14px;cursor:pointer;font-size:1rem;flex-shrink:0;}
@@ -397,6 +398,36 @@ var LOCATION_PRESETS = [
 ];
 
 // Open-Meteo（無料・APIキー不要）で7日間天気を取得
+
+// ── 雨の日に水やりを自動リセット ─────────────────────────────────────────────
+var RAIN_CHECK_KEY = "garden-rain-check-v1";
+
+function checkRainAndResetWatering(){
+  if(WEATHER.length === 0) return;
+  var today = WEATHER[0];
+  var todayDate = todayStr();
+  var lastCheck = localStorage.getItem(RAIN_CHECK_KEY);
+  if(lastCheck === todayDate) return;
+  if(today.rain >= 70){
+    var count = 0;
+    state.plants.forEach(function(p){
+      // 水耕栽培は除外、日陰も除外、日向・半日陰は雨が当たるのでリセット
+      if(p.category === "hydroponic") return;
+      if(p.sunlight === "shade") return;
+      if(p.lastWatered !== todayDate){
+        p.lastWatered = todayDate;
+        p.logs = (p.logs||[]).concat([{date:todayDate, note:"🌧 雨による水やり自動記録（降水確率"+today.rain+"%）"}]);
+        count++;
+      }
+    });
+    if(count > 0){
+      savePlants();
+      showToast("🌧 今日は雨！"+count+"株の水やりを自動記録しました");
+    }
+  }
+  localStorage.setItem(RAIN_CHECK_KEY, todayDate);
+}
+
 async function fetchWeather(lat, lon) {
   try {
     var url = "https://api.open-meteo.com/v1/forecast?latitude="+lat+"&longitude="+lon
@@ -433,12 +464,13 @@ function saveLocation(loc){
 }
 
 var CAT = {
-  vegetable:  {label:"野菜",      icon:"🥦"},
-  fruit_tree: {label:"果樹・果物",icon:"🍎"},
-  tree:       {label:"樹木",      icon:"🌳"},
-  herb:       {label:"ハーブ",    icon:"🌿"},
-  flower:     {label:"花・観葉", icon:"🌸"},
-  other:      {label:"その他",    icon:"🪴"},
+  vegetable:    {label:"野菜",      icon:"🥦"},
+  fruit_tree:   {label:"果樹・果物",icon:"🍎"},
+  tree:         {label:"樹木",      icon:"🌳"},
+  herb:         {label:"ハーブ",    icon:"🌿"},
+  flower:       {label:"花・観葉", icon:"🌸"},
+  hydroponic:   {label:"水耕栽培",  icon:"💧"},
+  other:        {label:"その他",    icon:"🪴"},
 };
 
 var EMOJI_CATS = [
@@ -447,6 +479,7 @@ var EMOJI_CATS = [
   {label:"樹木",      emojis:["🌳","🌲","🌴","🎋","🎍","🌵","🍃","🍂","🍁","🌿","🌱","🪴","🌾","🎄","🪵"]},
   {label:"花・観葉",  emojis:["🌸","🌹","🌻","🌼","🌺","💐","🪷","🌷","🌝","🌞","🎍","🌊","🌈","🌙","✨"]},
   {label:"ハーブ",    emojis:["🌿","🍃","🍀","🌱","🫖","🍵","🌾","🧂","🫚","🪴","🌲","🌳","🌻","🧄","🌼"]},
+  {label:"水耕",      emojis:["🥬","🍅","🥕","🌱","🫛","🥦","🌿","🍃","🥒","🫑","🌾","🍀","🧄","🧅","🥗"]},
 ];
 
 var TEMPLATES = {
@@ -754,10 +787,17 @@ function renderToday() {
 
   // お世話が必要なリストを作成
   var waterItems = [], fertItems = [];
+  var waterChangeItems = [];
   state.plants.forEach(function(p){
     var wd=daysSince(p.lastWatered), fd=daysSince(p.lastFertilized);
-    if(wd>=p.waterDays) waterItems.push({p:p, days:wd, overdue: wd>p.waterDays});
+    if(p.category !== "hydroponic" && wd>=p.waterDays) waterItems.push({p:p, days:wd, overdue: wd>p.waterDays});
     if(fd>=p.fertilizeDays) fertItems.push({p:p, days:fd, overdue: fd>p.fertilizeDays});
+    // 水耕栽培の水替えチェック
+    if(p.category === "hydroponic"){
+      var wcd = daysSince(p.lastWaterChanged||"2000-01-01");
+      var wcDays = p.waterChangeDays||14;
+      if(wcd >= wcDays) waterChangeItems.push({p:p, days:wcd, overdue: wcd>wcDays});
+    }
   });
   // 期限超過を先に並べる
   waterItems.sort(function(a,b){return b.days-a.days;});
@@ -826,7 +866,31 @@ function renderToday() {
     });
   }
 
-  if(waterItems.length===0 && fertItems.length===0){
+  // 水替えセクション（水耕栽培）
+  if(waterChangeItems.length>0){
+    var wcSelKeys = waterChangeItems.map(function(it){return it.p.id+"_wc";});
+    var allWcSel = wcSelKeys.every(function(k){return todaySelected[k];});
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 12px 4px;">';
+    html += '<div style="font-family:sans-serif;font-size:.9rem;font-weight:600;">💧 水替えが必要 <span style="font-size:.75rem;color:var(--sky);font-weight:700;">('+waterChangeItems.length+'株)</span></div>';
+    html += '<div style="display:flex;gap:5px;">';
+    html += '<button onclick="selectAllToday(\'wc\')" style="background:var(--cream);border:1.5px solid var(--petal);border-radius:8px;padding:4px 10px;font-size:.7rem;cursor:pointer;font-family:inherit;">'+(allWcSel?"選択解除":"全選択")+'</button>';
+    html += '<button onclick="bulkWaterChange()" style="background:#e0f0ff;color:#006080;border:1.5px solid var(--sky);border-radius:8px;padding:4px 10px;font-size:.7rem;font-weight:700;cursor:pointer;font-family:inherit;">まとめて記録</button>';
+    html += '</div></div>';
+    waterChangeItems.forEach(function(it){
+      var k=it.p.id+"_wc", sel=todaySelected[k];
+      var rowCls = it.overdue ? "care-item-row care-overdue" : "care-item-row care-due-soon";
+      html += '<div class="'+rowCls+(sel?" selected":"")+' today-row" data-id="'+it.p.id+'" data-type="wc" onclick="handleTodayRow(event)">';
+      html += '<div class="care-check'+(sel?" checked":"")+'">'+( sel?"✓":"")+'</div>';
+      html += '<div style="flex:1"><div style="font-size:.82rem;font-weight:700;">'+it.p.emoji+' '+it.p.name+'</div>';
+      html += '<div style="font-size:.68rem;color:#888;">'+it.p.variety+'　💧水耕栽培</div></div>';
+      html += it.overdue
+        ? '<span class="overdue-badge">'+it.days+'日超過</span>'
+        : '<span class="due-soon-badge">本日</span>';
+      html += '</div>';
+    });
+  }
+
+  if(waterItems.length===0 && fertItems.length===0 && waterChangeItems.length===0){
     html += '<div class="empty" style="padding:24px"><div class="e-icon">🎉</div><p>今日のお世話はすべて完了！</p></div>';
   }
 
@@ -850,7 +914,9 @@ function toggleTodaySelect(id, type){
 
 function selectAllToday(type){
   var items = type==="w"
-    ? state.plants.filter(function(p){return daysSince(p.lastWatered)>=p.waterDays;})
+    ? state.plants.filter(function(p){return p.category!=="hydroponic"&&daysSince(p.lastWatered)>=p.waterDays;})
+    : type==="wc"
+    ? state.plants.filter(function(p){return p.category==="hydroponic"&&daysSince(p.lastWaterChanged||"2000-01-01")>=(p.waterChangeDays||14);})
     : state.plants.filter(function(p){return daysSince(p.lastFertilized)>=p.fertilizeDays;});
   var keys = items.map(function(p){return p.id+"_"+type;});
   var allSel = keys.every(function(k){return todaySelected[k];});
@@ -872,6 +938,22 @@ function bulkWater(){
   renderToday();
   renderList();
   showToast(ids.length+"株の水やりを記録しました");
+}
+
+function bulkWaterChange(){
+  var ids = Object.keys(todaySelected).filter(function(k){return k.endsWith("_wc")&&todaySelected[k];}).map(function(k){return parseInt(k);});
+  if(ids.length===0){ showToast("水替えする植物を選択してください"); return; }
+  state.plants.forEach(function(p){
+    if(ids.indexOf(p.id)>=0){
+      p.lastWaterChanged=todayStr();
+      p.logs=(p.logs||[]).concat([{date:todayStr(),note:"💧 水替え記録（一括）"}]);
+    }
+  });
+  ids.forEach(function(id){ delete todaySelected[id+"_wc"]; });
+  savePlants();
+  renderToday();
+  renderList();
+  showToast(ids.length+"株の水替えを記録しました");
 }
 
 function bulkFert(){
@@ -1060,8 +1142,16 @@ function renderDetail() {
   html += '</div>';
   // Action row
   html += '<div class="action-row">';
-  html += '<button class="action-btn water" onclick="doWater('+p.id+')">💧 水やり記録</button>';
-  html += '<button class="action-btn fertilize" onclick="doFertilize('+p.id+')">🌱 追肥記録</button>';
+  if(p.category === "hydroponic"){
+    var wcd = daysSince(p.lastWaterChanged||"2000-01-01");
+    var wcDays = p.waterChangeDays||14;
+    var wcOverdue = wcd >= wcDays;
+    html += '<button class="action-btn water" onclick="doWaterChange('+p.id+')" style="'+(wcOverdue?"background:#fde8e3;border-color:var(--urgent);":"")+'">💧 水替え記録'+(wcOverdue?"<br><span style=\"font-size:.65rem\">"+wcd+"日経過</span>":"")+'</button>';
+    html += '<button class="action-btn fertilize" onclick="doFertilize('+p.id+')">🌱 液肥記録</button>';
+  } else {
+    html += '<button class="action-btn water" onclick="doWater('+p.id+')">💧 水やり記録</button>';
+    html += '<button class="action-btn fertilize" onclick="doFertilize('+p.id+')">🌱 追肥記録</button>';
+  }
   html += '</div>';
 
   // Health
@@ -1168,6 +1258,14 @@ function doFertilize(id){
   p.lastFertilized=todayStr();
   p.logs=(p.logs||[]).concat([{date:todayStr(),note:"追肥記録"}]);
   savePlants().then(function(){renderDetail();showToast("追肥を記録しました");});
+}
+
+function doWaterChange(id){
+  var p=state.plants.find(function(x){return x.id===id;});
+  if(!p)return;
+  p.lastWaterChanged=todayStr();
+  p.logs=(p.logs||[]).concat([{date:todayStr(),note:"💧 水替え記録"}]);
+  savePlants().then(function(){renderDetail();showToast("水替えを記録しました");});
 }
 
 function addAlbumPhoto(id,input){
@@ -1388,6 +1486,7 @@ function openEditModal(id){
     _name: p.name, _variety: p.variety, _planted: p.planted,
     _water: p.waterDays, _fert: p.fertilizeDays,
     _sun: p.sunlight, _notes: p.notes,
+    _waterChangeDays: p.waterChangeDays||14,
   };
   renderAddModal();
   document.getElementById("screen-add").classList.remove("hidden");
@@ -1422,7 +1521,13 @@ function renderAddModal(){
   html+='<div class="form-row"><label>植え付け日</label><input type="date" id="f-planted" value="'+(addForm._planted||todayStr())+'"></div>';
   html+='<div class="two-col"><div class="form-row"><label>水やり（日おき）</label><input type="number" id="f-water" min="1" max="90" value="'+(addForm._water||3)+'"></div><div class="form-row"><label>追肥（日おき）</label><input type="number" id="f-fert" min="1" max="365" value="'+(addForm._fert||14)+'"></div></div>';
   var sunVal = addForm._sun||'full';
-  html+='<div class="form-row"><label>日当たり</label><select id="f-sun"><option value="full"'+(sunVal==='full'?' selected':'')+'>日向（6時間以上）</option><option value="partial"'+(sunVal==='partial'?' selected':'')+'>半日陰（3〜6時間）</option><option value="shade"'+(sunVal==='shade'?' selected':'')+'>日陰（3時間未満）</option></select></div>';
+  var isHydro = addForm.category === "hydroponic";
+  if(isHydro){
+    html+='<div class="form-row"><label>設置場所</label><select id="f-sun"><option value="full"'+(sunVal==='full'?' selected':'')+'>窓際・屋外（日当たり良好）</option><option value="partial"'+(sunVal==='partial'?' selected':'')+'>室内（明るい場所）</option><option value="shade"'+(sunVal==='shade'?' selected':'')+'>室内（暗め）</option></select></div>';
+    html+='<div class="form-row"><label>水替え間隔（日）</label><input type="number" id="f-waterchange" min="1" max="30" value="'+(addForm._waterChangeDays||14)+'"></div>';
+  } else {
+    html+='<div class="form-row"><label>日当たり</label><select id="f-sun"><option value="full"'+(sunVal==='full'?' selected':'')+'>日向（6時間以上）</option><option value="partial"'+(sunVal==='partial'?' selected':'')+'>半日陰（3〜6時間）</option><option value="shade"'+(sunVal==='shade'?' selected':'')+'>日陰（3時間未満）</option></select></div>';
+  }
   html+='<div class="form-row"><label>メモ</label><textarea id="f-notes" rows="2" placeholder="気づいたこと、注意点など">'+(addForm._notes||'')+'</textarea></div>';
 
   // Cover photo
@@ -1530,11 +1635,13 @@ function submitAdd(){
     // 編集モード：既存植物を更新
     state.plants=state.plants.map(function(p){
       if(p.id!==addForm.editId) return p;
+      var wcDays = parseInt((document.getElementById("f-waterchange")||{value:p.waterChangeDays||14}).value)||14;
       var updated=Object.assign({},p,{
         name:name, variety:variety, emoji:addForm.emoji,
         category:category, planted:planted,
         waterDays:waterDays, fertilizeDays:fertilizeDays,
         sunlight:sunlight, notes:notes,
+        waterChangeDays: wcDays,
       });
       // カバー写真を変更した場合は先頭に追加
       if(addForm.coverUrl){
@@ -1550,6 +1657,7 @@ function submitAdd(){
     });
   } else {
     // 新規追加モード
+    var waterChangeDays = parseInt((document.getElementById("f-waterchange")||{value:14}).value)||14;
     var p={
       id: Date.now(),
       name:name, variety:variety, emoji:addForm.emoji,
@@ -1557,8 +1665,10 @@ function submitAdd(){
       lastWatered:todayStr(), lastFertilized:todayStr(),
       waterDays:waterDays, fertilizeDays:fertilizeDays,
       sunlight:sunlight, health:100, notes:notes,
+      waterChangeDays: waterChangeDays,
+      lastWaterChanged: category==="hydroponic" ? todayStr() : null,
       photos: addForm.coverUrl ? [{url:addForm.coverUrl,date:todayStr()}] : [],
-      logs: [{date:todayStr(),note:"植え付け",photoUrl:addForm.coverUrl||null}],
+      logs: [{date:todayStr(),note:category==="hydroponic"?"水耕栽培開始":"植え付け",photoUrl:addForm.coverUrl||null}],
     };
     state.plants.push(p);
     closeAddModal();

@@ -545,7 +545,8 @@ function renderList() {
   var loginBtn = state_uid
     ? '<button onclick="firebaseSignOut()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:20px;padding:4px 10px;font-size:.65rem;cursor:pointer;font-family:inherit;white-space:nowrap;">☁ 同期中</button>'
     : '<button onclick="firebaseSignIn()" style="background:rgba(255,255,255,.25);border:1px solid rgba(255,255,255,.5);color:#fff;border-radius:20px;padding:4px 10px;font-size:.65rem;cursor:pointer;font-family:inherit;white-space:nowrap;">☁ ログイン</button>';
-  html += '<div class="top-bar"><div class="top-icon">🌿</div><div style="flex:1"><div style="font-family:\'Shippori Mincho\',serif;font-size:1.1rem;font-weight:600;">家庭菜園ノート</div><div class="sub">'+plants.length+'株を管理中</div></div>'+loginBtn+'</div>';
+  var exportBtn = '<button onclick="exportData()" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:20px;padding:4px 8px;font-size:.75rem;cursor:pointer;margin-right:4px;">📤</button>';
+  html += '<div class="top-bar"><div class="top-icon">🌿</div><div style="flex:1"><div style="font-family:\'Shippori Mincho\',serif;font-size:1.1rem;font-weight:600;">家庭菜園ノート</div><div class="sub">'+plants.length+'株を管理中</div></div>'+exportBtn+loginBtn+'</div>';
 
   // Weather header with location
   var locName = state.location ? state.location.name : "東京";

@@ -877,6 +877,107 @@ async function addPhotoAndSaveToDrive(plantId, dataUrl, filename){
     saveToDrive(dataUrl, filename || (p.name+"_"+todayStr()+".jpg"));
   }
 }
+
+// ── AI総合診断・アドバイスセクション ─────────────────────────────────────────
+function buildAISection(p){
+  var sd = state.scanData;
+  var harvestInfo = getHarvestInfo(p);
+  var html = '<div style="margin:0 12px 10px;background:linear-gradient(135deg,#fff8f0,#fefcf7);border:1.5px solid #e8b87a;border-radius:12px;padding:12px;">';
+  html += '<div style="font-size:.72rem;font-weight:700;color:#9a5a00;letter-spacing:.06em;margin-bottom:8px;">🤖 AI診断・アドバイス</div>';
+  if(harvestInfo){
+    html += '<div style="background:rgba(255,255,255,.6);border-radius:8px;padding:7px 10px;margin-bottom:8px;">';
+    html += '<div style="font-size:.68rem;font-weight:700;color:var(--moss);">🗓 収穫目安</div>';
+    html += '<div style="font-size:.78rem;color:var(--soil);margin-top:2px;">'+harvestInfo+'</div>';
+    html += '</div>';
+  }
+  if(p.aiComment){
+    html += '<div style="background:rgba(255,255,255,.6);border-radius:8px;padding:7px 10px;margin-bottom:8px;">';
+    html += '<div style="font-size:.68rem;font-weight:700;color:var(--moss);">🌿 アドバイス '+(p.aiCommentDate||'')+'</div>';
+    html += '<div style="font-size:.77rem;color:var(--soil);line-height:1.55;margin-top:2px;">'+p.aiComment+'</div>';
+    html += '</div>';
+  }
+  if(sd.imgUrl && sd.p_id===p.id){
+    html += '<img src="'+sd.imgUrl+'" alt="" style="width:100%;border-radius:10px;margin-bottom:8px;max-height:160px;object-fit:cover;">';
+    html += '<div style="display:flex;gap:6px;margin-bottom:8px;">';
+    html += '<button onclick="clearScan()" style="flex:1;background:rgba(255,255,255,.7);border:1.5px solid #e8b87a;border-radius:8px;padding:6px;font-family:inherit;font-size:.72rem;cursor:pointer;color:#9a5a00;">🔄 変える</button>';
+    html += '<label style="flex:1;display:flex;align-items:center;justify-content:center;gap:3px;background:#e3f0fa;border:1.5px solid var(--sky);border-radius:8px;padding:6px;font-size:.72rem;font-weight:700;color:var(--rain);cursor:pointer;position:relative;">📷 撮り直す<input type="file" accept="image/*" capture="environment" onchange="setScanPhoto('+p.id+',this)" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;"></label>';
+    html += '</div>';
+  } else {
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px;">';
+    html += '<label style="display:flex;align-items:center;justify-content:center;gap:4px;border:2px dashed #e8b87a;border-radius:10px;padding:9px;cursor:pointer;font-size:.72rem;color:#9a5a00;position:relative;background:rgba(255,255,255,.5);">🖼 写真を選択<input type="file" accept="image/*" onchange="setScanPhoto('+p.id+',this)" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;"></label>';
+    html += '<label style="display:flex;align-items:center;justify-content:center;gap:4px;background:#e3f0fa;border:1.5px solid var(--sky);color:var(--rain);border-radius:10px;padding:9px;font-size:.72rem;font-weight:700;cursor:pointer;position:relative;">📷 カメラ<input type="file" accept="image/*" capture="environment" onchange="setScanPhoto('+p.id+',this)" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;"></label>';
+    html += '</div>';
+  }
+  if(sd.result && sd.p_id===p.id){
+    var r=sd.result;
+    var sc=r.status==="良好"?"#4a6741":r.status==="要注意"?"#9a6500":"#c0392b";
+    html += '<div style="background:rgba(255,255,255,.7);border-radius:8px;padding:8px 10px;margin-bottom:8px;">';
+    html += '<div style="font-size:.68rem;font-weight:700;color:#9a5a00;margin-bottom:4px;">🔬 診断結果</div>';
+    html += '<span style="background:#fff;border-radius:20px;padding:2px 9px;font-size:.7rem;font-weight:700;border:1.5px solid '+sc+';color:'+sc+';">'+r.status+'</span>';
+    if(r.health!=null) html += '<span style="background:#fff;border-radius:20px;padding:2px 9px;font-size:.7rem;font-weight:700;border:1.5px solid '+(r.health>=75?"#4a6741":r.health>=50?"#9a6500":"#c0392b")+';color:'+(r.health>=75?"#4a6741":r.health>=50?"#9a6500":"#c0392b")+';margin-left:4px;">健康 '+r.health+'/100</span>';
+    if(r.issues&&r.issues.length>0){ html+='<div style="margin:5px 0 2px;font-size:.68rem;font-weight:700;color:#9a5a00;">気になる点</div>'; r.issues.forEach(function(iss){html+='<div style="font-size:.72rem;color:#555;">・'+iss+'</div>';}); }
+    if(r.advice) html += '<div style="font-size:.77rem;line-height:1.55;margin-top:5px;">'+r.advice+'</div>';
+    if(r.next_action) html += '<div style="background:#fff;border-radius:8px;padding:6px 9px;font-size:.75rem;font-weight:700;color:#9a5a00;margin-top:5px;">👉 '+r.next_action+'</div>';
+    html += '</div>';
+  }
+  if(sd.loading && sd.p_id===p.id){
+    html += '<div style="background:rgba(255,255,255,.7);border-radius:8px;padding:8px;margin-bottom:8px;font-size:.78rem;">AIが解析中<span class="dots"><span>.</span><span>.</span><span>.</span></span></div>';
+  }
+  html += '<div style="display:flex;gap:6px;">';
+  var diagEnabled = !!(sd.imgB64 && !sd.loading && sd.p_id===p.id);
+  html += '<button onclick="runAIDiagnosis('+p.id+')" '+(diagEnabled?'':'disabled')+' style="flex:1;background:'+(diagEnabled?'linear-gradient(135deg,#e8a830,#c87000)':'#ddd')+';color:#fff;border:none;border-radius:10px;padding:9px;font-family:inherit;font-size:.78rem;font-weight:700;cursor:'+(diagEnabled?'pointer':'default')+';">🔬 写真で診断</button>';
+  html += '<button onclick="runAIAdvice('+p.id+')" style="flex:1;background:var(--moss);color:#fff;border:none;border-radius:10px;padding:9px;font-family:inherit;font-size:.78rem;font-weight:700;cursor:pointer;">🌿 アドバイス</button>';
+  html += '</div>';
+  html += '<div id="ai-combined-box-'+p.id+'"></div>';
+  html += '</div>';
+  return html;
+}
+
+async function runAIDiagnosis(id){
+  if(!state.scanData.imgB64||state.scanData.p_id!==id)return;
+  state.scanData.loading=true;
+  renderDetail();
+  var p=state.plants.find(function(x){return x.id===id;});
+  var prompt="家庭菜園アドバイザーとして「"+p.name+"（"+p.variety+"）」の写真を診断。JSONのみ回答(前置き不要):\n{\"health\":数値0-100,\"status\":\"良好\"か\"要注意\"か\"要対処\",\"issues\":[\"問題点\"],\"advice\":\"アドバイス2文\",\"next_action\":\"今すぐやること1文\",\"water_days\":推奨水やり間隔,\"fert_days\":推奨追肥間隔}";
+  try{
+    var data=await callClaude([{role:"user",content:[{type:"image",source:{type:"base64",media_type:"image/jpeg",data:state.scanData.imgB64}},{type:"text",text:prompt}]}],800);
+    var raw=(data.content||[]).map(function(c){return c.text||"";}).join("");
+    var parsed=JSON.parse(raw.replace(/```json|```/g,"").trim());
+    state.scanData.result=parsed;
+    if(parsed.health!=null) p.health=parsed.health;
+    if(parsed.water_days>0) p.waterDays=parsed.water_days;
+    if(parsed.fert_days>0) p.fertilizeDays=parsed.fert_days;
+    savePlants();
+  }catch(e){
+    state.scanData.result={health:null,status:"エラー",issues:[],advice:"診断に失敗しました。",next_action:""};
+  }
+  state.scanData.loading=false;
+  renderDetail();
+}
+
+async function runAIAdvice(id){
+  var p=state.plants.find(function(x){return x.id===id;});
+  var box=document.getElementById("ai-combined-box-"+id);
+  if(!box)return;
+  box.innerHTML='<div style="background:rgba(255,255,255,.7);border-radius:8px;padding:8px;margin-top:8px;font-size:.78rem;">考えています<span class="dots"><span>.</span><span>.</span><span>.</span></span></div>';
+  var sun=p.sunlight==="full"?"日向":p.sunlight==="partial"?"半日陰":"日陰";
+  var locName=state.location?state.location.name:"";
+  var weather=WEATHER.length>0?WEATHER.slice(0,4).map(function(w){return w.day+w.icon+w.temp+"雨"+w.rain+"%";}).join(" "):"天気データなし";
+  var prompt="家庭菜園専門家として「"+p.name+"("+p.variety+")」の今週のアドバイスを3〜4文で。\n"
+    +"水やり:"+daysSince(p.lastWatered)+"日前/"+p.waterDays+"日おき 追肥:"+daysSince(p.lastFertilized)+"日前/"+p.fertilizeDays+"日おき\n"
+    +"日当たり:"+sun+" 健康度:"+p.health+"% 地域:"+locName+" 天気:"+weather+"\n"
+    +"最後に推奨水やり・追肥間隔をJSON:{water_days:数値,fert_days:数値}";
+  try{
+    var data=await callClaude([{role:"user",content:prompt}],600);
+    var raw=(data.content||[]).map(function(c){return c.text||"";}).join("");
+    var jsonMatch=raw.match(/\{[^{}]*water_days[^{}]*\}/);
+    if(jsonMatch){try{var rec=JSON.parse(jsonMatch[0]);if(rec.water_days>0)p.waterDays=rec.water_days;if(rec.fert_days>0)p.fertilizeDays=rec.fert_days;savePlants();raw=raw.replace(jsonMatch[0],"").trim();}catch(e2){}}
+    p.aiComment=raw; p.aiCommentDate=todayStr(); savePlants();
+    renderDetail();
+  }catch(e){
+    if(box) box.innerHTML='<div style="font-size:.78rem;color:#c0392b;margin-top:6px;">取得に失敗しました</div>';
+  }
+}
 function backToList() {
   document.getElementById("screen-detail").classList.add("hidden");
   showScreen("list");

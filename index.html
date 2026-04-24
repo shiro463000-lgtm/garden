@@ -599,8 +599,27 @@ function renderChat(){
   html += '<div id="chat-messages" style="padding:10px 0 80px;">';
 
   if(chatHistory.length === 0){
-    // ウェルカムメッセージ
-    html += '<div class="chat-msg ai"><div class="chat-avatar">🌿</div><div class="chat-bubble">こんにちは！家庭菜園アドバイザーです。<br><br>現在 <b>'+state.plants.length+'株</b> を管理中ですね。病気・害虫・肥料・水やりなど、なんでも気軽に相談してください！<br><br>例えば：<br>・葉が黄色くなってきた<br>・実がなかなか大きくならない<br>・おすすめの肥料を教えて</div></div>';
+    // 初回は植物情報を把握した上でウェルカムメッセージを生成
+    var locName_ = state.location ? state.location.name : "";
+    var plantList_ = state.plants.map(function(p){
+      var wd=daysSince(p.lastWatered), fd=daysSince(p.lastFertilized);
+      return p.emoji+p.name+(p.variety?"("+p.variety+")":"")
+        +" 水やり:"+wd+"日前/"+p.waterDays+"日おき"
+        +(wd>=p.waterDays?" ⚠️":"")
+        +" 追肥:"+fd+"日前/"+p.fertilizeDays+"日おき"
+        +(fd>=p.fertilizeDays?" ⚠️":"")
+        +" 健康:"+p.health+"%";
+    }).join("<br>・");
+    var todayW_ = WEATHER.length>0 ? WEATHER[0].icon+WEATHER[0].temp+" 雨"+WEATHER[0].rain+"%" : "取得中";
+    var urgentCount = state.plants.filter(function(p){return urgency(p)==="urgent";}).length;
+    html += '<div class="chat-msg ai"><div class="chat-avatar">🌿</div><div class="chat-bubble">';
+    html += 'こんにちは！家庭菜園アドバイザーです🌱<br><br>';
+    html += '📍 <b>'+locName_+'</b>　今日の天気: '+todayW_+'<br><br>';
+    if(state.plants.length > 0){
+      html += '現在管理中の '+state.plants.length+'株：<br>・'+plantList_+'<br><br>';
+      if(urgentCount > 0) html += '⚠️ <b>'+urgentCount+'株</b>がお世話を必要としています！<br><br>';
+    }
+    html += '病気・害虫・生育・肥料など、なんでも気軽に相談してください！</div></div>';
   } else {
     chatHistory.forEach(function(m){
       if(m.role === "user"){
@@ -660,26 +679,80 @@ async function sendChat(){
     msgs.scrollTop = msgs.scrollHeight;
   }
 
-  // 植物情報をシステムプロンプトに含める
-  var plantsSummary = state.plants.length > 0
-    ? "現在管理中の植物：" + state.plants.map(function(p){
-        return p.emoji+p.name+"("+p.variety+") 水やり:"+p.waterDays+"日おき 追肥:"+p.fertilizeDays+"日おき 健康度:"+p.health+"% 日当たり:"+p.sunlight;
-      }).join("、")
-    : "植物未登録";
+  // ── アプリ内の全情報をシステムプロンプトに含める ──
+  var today = new Date();
+  var todayDateStr = today.toLocaleDateString("ja-JP",{year:"numeric",month:"long",day:"numeric",weekday:"short"});
 
-  var weather = WEATHER.length > 0
-    ? "今日の天気："+WEATHER[0].icon+" "+WEATHER[0].temp+" 降水確率"+WEATHER[0].rain+"%"
-    : "";
+  // 天気情報（7日分）
+  var weatherInfo = "天気情報なし";
+  if(WEATHER.length > 0){
+    var locName = state.location ? state.location.name : "不明";
+    weatherInfo = "【天気予報："+locName+"】\n";
+    weatherInfo += WEATHER.map(function(w,i){
+      return w.day+"："+w.icon+" "+w.temp+(w.tempMin?" (最低"+w.tempMin+")":"")+" 降水確率"+w.rain+"%";
+    }).join("\n");
+  }
 
-  var systemPrompt = "あなたは親切で知識豊富な家庭菜園アドバイザーです。ユーザーの植物の状態に基づいて、具体的で実践的なアドバイスをします。回答は簡潔に、スマートフォンで読みやすい長さにしてください。\n\n" + plantsSummary + "\n" + weather;
+  // 植物情報（詳細）
+  var plantsInfo = "植物未登録";
+  if(state.plants.length > 0){
+    plantsInfo = "【管理中の植物："+state.plants.length+"株】\n";
+    plantsInfo += state.plants.map(function(p){
+      var wd = daysSince(p.lastWatered);
+      var fd = daysSince(p.lastFertilized);
+      var wNeed = wd >= p.waterDays ? "⚠️要水やり("+wd+"日経過)" : "水やり"+wd+"日前";
+      var fNeed = fd >= p.fertilizeDays ? "⚠️要追肥("+fd+"日経過)" : "追肥"+fd+"日前";
+      var sun = p.sunlight==="full"?"日向":p.sunlight==="partial"?"半日陰":"日陰";
+      var lines = [
+        "●"+p.emoji+p.name+"（"+p.variety+"）カテゴリ:"+(({"vegetable":"野菜","fruit_tree":"果樹","tree":"樹木","herb":"ハーブ","flower":"花","hydroponic":"水耕栽培","other":"その他"})[p.category]||p.category),
+        "  健康度:"+p.health+"% 日当たり:"+sun,
+        "  "+wNeed+" / "+fNeed,
+      ];
+      if(p.planted) lines.push("  定植日:"+p.planted);
+      if(p.seeded) lines.push("  種まき日:"+p.seeded);
+      if(p.sprouted) lines.push("  発芽日:"+p.sprouted);
+      if(p.bought) lines.push("  苗購入日:"+p.bought);
+      if(p.notes) lines.push("  メモ:"+p.notes);
+      // 最新の日誌3件
+      if(p.logs && p.logs.length > 0){
+        var recentLogs = p.logs.slice(-3).map(function(l){return l.date+":"+l.note;});
+        lines.push("  最近の記録: "+recentLogs.join(" / "));
+      }
+      // 収穫目安
+      var hi = getHarvestInfo(p);
+      if(hi) lines.push("  収穫目安: "+hi);
+      return lines.join("\n");
+    }).join("\n\n");
+  }
 
-  // API呼び出し用のメッセージ履歴（最新10件まで）
-  var messages = chatHistory.slice(-10).map(function(m){
-    return {role: m.role, content: m.content};
-  });
+  // 地域情報
+  var locationInfo = state.location ? "場所："+state.location.name : "";
+
+  var systemPrompt = "あなたは親切で知識豊富な家庭菜園アドバイザーです。"
+    + "以下のユーザーの菜園データをすべて把握した上で、具体的・実践的なアドバイスをしてください。"
+    + "回答はスマートフォンで読みやすい長さ（3〜5文程度）にしてください。\n\n"
+    + "【今日の日付】" + todayDateStr + "\n\n"
+    + locationInfo + "\n\n"
+    + weatherInfo + "\n\n"
+    + plantsInfo;
+
+  // システムプロンプトをfirst userメッセージとして追加（Anthropic API仕様）
+  var messages = [{role:"user", content: systemPrompt + "\n\n---\n以下の質問に答えてください：\n" + chatHistory[chatHistory.length-1].content},
+                  {role:"assistant", content:"わかりました。菜園の状況を確認しました。"}];
+
+  // 会話履歴（最新8件、システムプロンプト除く）
+  if(chatHistory.length > 1){
+    var histMessages = chatHistory.slice(-9, -1).map(function(m){
+      return {role: m.role, content: m.content};
+    });
+    messages = [{role:"user", content: systemPrompt + "\n\n---\n以下は今までの会話の続きです。"}]
+      .concat([{role:"assistant", content:"わかりました。"}])
+      .concat(histMessages)
+      .concat([{role:"user", content: chatHistory[chatHistory.length-1].content}]);
+  }
 
   try {
-    var data = await callClaude(messages, 800);
+    var data = await callClaude(messages, 1000);
     var reply = (data.content||[]).map(function(c){return c.text||"";}).join("") || "すみません、回答を取得できませんでした。";
 
     // タイピングを削除してレスポンス表示
@@ -1375,23 +1448,8 @@ function renderDetail() {
   html += '<div class="health-wrap"><div class="health-label">健康度</div>';
   html += '<div style="display:flex;align-items:center;gap:8px;"><div class="health-track" style="flex:1"><div class="health-fill" style="width:'+p.health+'%;background:'+healthColor+'"></div></div><span style="font-size:.82rem;font-weight:700;color:'+healthColor+'">'+p.health+'%</span></div></div>';
 
-  // 収穫目安・AIコメント
-  var harvestInfo = getHarvestInfo(p);
-  if(harvestInfo || p.aiComment){
-    html += '<div style="margin:0 12px 10px;background:linear-gradient(135deg,#f0f9ec,#fefcf7);border:1.5px solid var(--sprout);border-radius:12px;padding:10px 13px;">';
-    if(harvestInfo){
-      html += '<div style="font-size:.75rem;font-weight:700;color:var(--moss);margin-bottom:4px;">🗓 収穫目安</div>';
-      html += '<div style="font-size:.8rem;color:var(--soil);">'+harvestInfo+'</div>';
-    }
-    if(p.aiComment){
-      html += '<div style="font-size:.75rem;font-weight:700;color:var(--moss);margin-top:'+(harvestInfo?"8px":"0")+'px;margin-bottom:4px;">🤖 AIコメント</div>';
-      html += '<div style="font-size:.78rem;color:var(--soil);line-height:1.55;">'+p.aiComment+'</div>';
-    }
-    html += '<button onclick="refreshAIComment('+p.id+')" style="background:none;border:1px solid var(--sprout);border-radius:8px;padding:4px 10px;font-size:.7rem;color:var(--moss);cursor:pointer;margin-top:6px;font-family:inherit;">🔄 AIコメントを更新</button>';
-    html += '</div>';
-  } else {
-    html += '<div style="margin:0 12px 10px;"><button onclick="refreshAIComment('+p.id+')" style="background:#f0f9ec;border:1.5px solid var(--sprout);border-radius:10px;padding:8px 14px;cursor:pointer;font-family:inherit;font-size:.78rem;color:var(--moss);font-weight:700;display:flex;align-items:center;gap:5px;">🤖 AI品種コメントを取得</button></div>';
-  }
+  // AI総合診断セクション
+  html += buildAISection(p);
 
   // Care status
   html += '<div class="care-grid">';
@@ -1399,9 +1457,6 @@ function renderDetail() {
   html += '<div class="care-box" style="background:'+(wd>=p.waterDays?"#fde8e3":"#e8f5e2")+'"><div class="c-icon">💧</div><div class="c-label">最後の水やり</div><div class="c-val">'+daysLabel(wd)+'</div><div class="c-next">次回: '+p.waterDays+'日おき</div></div>';
   html += '<div class="care-box" style="background:'+(fd>=p.fertilizeDays?"#fff3d4":"#e8f5e2")+'"><div class="c-icon">🌱</div><div class="c-label">最後の追肥</div><div class="c-val">'+daysLabel(fd)+'</div><div class="c-next">次回: '+p.fertilizeDays+'日おき</div></div>';
   html += '</div>';
-
-  // Diagnosis
-  html += buildScanSection(p);
 
   // Album
   html += '<div class="sec-title">写真アルバム <span class="sec-sub">'+((p.photos||[]).length)+'枚</span></div>';
@@ -1415,10 +1470,7 @@ function renderDetail() {
   html += '<div style="padding:0 12px 6px;"><div style="border-radius:10px;border:1.5px solid var(--petal);background:#fff;padding:8px 10px;font-size:.72rem;color:#aaa;">Google Drive のURLを貼り付けて追加:<br><div style="display:flex;gap:5px;margin-top:5px;"><input id="url-input-'+p.id+'" type="url" placeholder="https://drive.google.com/..." style="flex:1;border:1.5px solid var(--petal);border-radius:8px;padding:6px 9px;font-size:.78rem;background:#fff;outline:none;color:var(--soil);"><button onclick="addPhotoUrl('+p.id+')" style="background:var(--moss);color:#fff;border:none;border-radius:8px;padding:6px 10px;font-size:.75rem;cursor:pointer;white-space:nowrap;">追加</button></div></div></div>';
 
   // AI Advice
-  html += '<div style="padding:0 12px 10px;">';
-  html += '<button onclick="getAIAdvice('+p.id+')" style="background:none;border:1.5px solid var(--sprout);border-radius:10px;padding:8px 14px;cursor:pointer;font-family:inherit;font-size:.78rem;color:var(--moss);font-weight:700;display:flex;align-items:center;gap:5px;">🌿 AIアドバイスを取得（天気連携）</button>';
-  html += '<div id="ai-advice-box"></div>';
-  html += '</div>';
+
 
   // Log
   html += '<div class="sec-title">栽培日誌</div>';
@@ -1552,6 +1604,7 @@ function setScanPhoto(id,input){
     state.scanData.imgUrl=dataUrl;
     state.scanData.imgB64=dataUrl.split(",")[1];
     state.scanData.result=null;
+    state.scanData.p_id=id;
     renderDetail();
   });
 }
@@ -1782,8 +1835,13 @@ function renderAddModal(){
 
 function switchEmojiCat(idx){
   addForm.emojiCatIdx=idx;
+  // 水耕タブ（index 5）に切り替えたらcategoryをhydroponicに
+  var catMap = {0:"vegetable",1:"fruit_tree",2:"tree",3:"flower",4:"herb",5:"hydroponic"};
+  if(catMap[idx]) addForm.category = catMap[idx];
   var first=EMOJI_CATS[idx].emojis[0];
   selectEmoji(first);
+  // モーダルを再描画してフォームを更新
+  renderAddModal();
 }
 
 function selectEmoji(e){

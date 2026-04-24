@@ -250,6 +250,11 @@ body{font-family:'Zen Maru Gothic',sans-serif;background:var(--cream);color:var(
 #toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:var(--soil);color:#fff;padding:9px 18px;border-radius:20px;font-size:.8rem;z-index:300;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;}
 #toast.show{opacity:1;}
 
+/* ── Drag & Drop ── */
+.drag-handle{padding:8px 6px;cursor:grab;color:#ccc;font-size:1.1rem;flex-shrink:0;touch-action:none;user-select:none;}
+.drag-handle:active{cursor:grabbing;}
+.plant-card.dragging{opacity:.4;border:2px dashed var(--moss);}
+.plant-card.drag-over{border-top:3px solid var(--moss);}
 /* ── Saving indicator ── */
 .saving{font-size:.65rem;color:var(--sprout);opacity:.8;}
 /* ── Chat ── */
@@ -696,6 +701,109 @@ async function sendChat(){
   }
 }
 
+
+// ── 収穫目安計算 ──────────────────────────────────────────────────────────────
+function getHarvestInfo(p){
+  // 種まき日または定植日から収穫目安を計算
+  var baseDate = p.seeded || p.planted;
+  if(!baseDate) return null;
+
+  // 一般的な収穫までの日数（品種による）
+  var harvestDays = {
+    "🍅":90, "🥬":45, "🥕":90, "🥦":90, "🧄":240, "🥒":55,
+    "🌽":80, "🍆":70, "🥔":90, "🫛":60, "🫑":70, "🧅":120,
+    "🍎":365*3, "🍋":365*2, "🍇":365*3, "🍓":90, "🫐":365*2,
+    "🌻":90, "🌹":60,
+  };
+  var days = harvestDays[p.emoji];
+  if(!days) return null;
+
+  var start = new Date(baseDate);
+  var harvest = new Date(start.getTime() + days * 86400000);
+  var now = new Date();
+  var daysLeft = Math.ceil((harvest - now) / 86400000);
+  var progress = Math.min(100, Math.max(0, Math.round((now - start) / (harvest - start) * 100)));
+
+  var dateStr = harvest.toLocaleDateString("ja-JP",{month:"long",day:"numeric"});
+  if(daysLeft < 0){
+    return "収穫時期を過ぎています（"+dateStr+"頃〜）";
+  } else if(daysLeft === 0){
+    return "🎉 今日が収穫目安日です！";
+  } else if(daysLeft <= 7){
+    return "🎉 あと"+daysLeft+"日で収穫目安（"+dateStr+"頃）　進捗: "+progress+"%";
+  } else {
+    return "あと"+daysLeft+"日（"+dateStr+"頃）　進捗: "+progress+"%";
+  }
+}
+
+// ── AI品種コメント取得・更新 ──────────────────────────────────────────────────
+async function refreshAIComment(id){
+  var p = state.plants.find(function(x){return x.id===id;});
+  if(!p) return;
+  showToast("AIコメントを取得中...");
+
+  var seededInfo = p.seeded ? "\n種まき日:"+p.seeded : "";
+  var sproutedInfo = p.sprouted ? "\n発芽日:"+p.sprouted : "";
+  var plantedInfo = p.planted ? "\n定植日:"+p.planted : "";
+  var boughtInfo = p.bought ? "\n苗購入日:"+p.bought : "";
+  var today = new Date().toISOString().split("T")[0];
+
+  var prompt = "家庭菜園アドバイザーとして「"+p.name+"」品種「"+p.variety+"」について3〜4文でコメントしてください。"
+    + "\n品種の特徴・育て方のポイント・注意点を含めてください。"
+    + seededInfo + sproutedInfo + plantedInfo + boughtInfo
+    + "\n現在の健康度:"+p.health+"%\n今日の日付:"+today
+    + "\n生育段階に合わせたタイムリーなアドバイスを含めてください。";
+
+  try {
+    var data = await callClaude([{role:"user",content:prompt}], 400);
+    var comment = (data.content||[]).map(function(c){return c.text||"";}).join("") || "";
+    if(comment){
+      p.aiComment = comment;
+      p.aiCommentDate = today;
+      savePlants();
+      renderDetail();
+    }
+  } catch(e) {
+    showToast("コメントの取得に失敗しました");
+  }
+}
+
+
+// ── Google Drive 写真保存 ─────────────────────────────────────────────────────
+async function saveToDrive(dataUrl, filename){
+  if(!window._fb || !state_uid) return null;
+
+  // Firebase AuthからGoogleのアクセストークンを取得
+  try {
+    var user = window._fb.auth.currentUser;
+    if(!user) return null;
+
+    // GoogleのOAuthトークンを取得
+    var credential = firebase.auth.GoogleAuthProvider.credentialFromResult
+      ? null : null;  // リダイレクト経由では直接取得できない
+
+    // Google Identity Services経由でDriveアクセスを要求
+    // 別途Drive APIスコープが必要なためログインを再要求
+    showToast("Google Driveに保存するには追加の認証が必要です");
+    return null;
+  } catch(e) {
+    console.warn("Drive save error:", e);
+    return null;
+  }
+}
+
+// 写真追加時にDriveへも保存（ログイン中のみ）
+async function addPhotoAndSaveToDrive(plantId, dataUrl, filename){
+  var p = state.plants.find(function(x){return x.id===plantId;});
+  if(!p) return;
+  p.photos = (p.photos||[]).concat([{url:dataUrl, date:todayStr()}]);
+  savePlants();
+
+  // ログイン中ならGoogle Driveにも保存を試みる
+  if(state_uid && window.gapi){
+    saveToDrive(dataUrl, filename || (p.name+"_"+todayStr()+".jpg"));
+  }
+}
 function backToList() {
   document.getElementById("screen-detail").classList.add("hidden");
   showScreen("list");
@@ -754,12 +862,16 @@ function renderList() {
   } else {
     filtered.forEach(function(p){
       var lv = urgency(p);
-      var lastPh = p.photos&&p.photos.length>0 ? p.photos[p.photos.length-1] : null;
+      // カバー写真：日誌の最新写真 > アルバム最新 > 絵文字
+  var lastLogPhoto = null;
+  if(p.logs){ var lr=[].concat(p.logs).reverse(); for(var li=0;li<lr.length;li++){if(lr[li].photoUrl){lastLogPhoto={url:lr[li].photoUrl,date:lr[li].date};break;}} }
+  var lastPh = lastLogPhoto || (p.photos&&p.photos.length>0 ? p.photos[p.photos.length-1] : null);
       var catI = CAT[p.category]||CAT.other;
       var thumb = lastPh ? '<div class="card-thumb"><img src="'+lastPh.url+'" alt="" onerror="this.style.display=\'none\'"></div>' : '<div class="card-thumb">'+p.emoji+'</div>';
       var lvBadge = lv==="urgent"?'<span class="badge badge-red">お世話が必要</span>':lv==="warning"?'<span class="badge badge-yellow">追肥時期</span>':'<span class="badge badge-green">順調</span>';
-      html += '<div class="plant-card '+lv+'" onclick="openDetail('+p.id+')">';
-      html += '<div class="card-inner">'+thumb+'<div class="card-info"><div class="card-name">'+p.name+'</div><div class="card-variety">'+p.variety+'</div><div class="card-badges">'+lvBadge+'<span class="badge-cat cat-'+(p.category||"other")+'">'+catI.icon+' '+catI.label+'</span>'+(p.photos&&p.photos.length>0?'<span class="badge badge-blue">📷'+p.photos.length+'枚</span>':'')+'</div></div></div>';
+      var dragHandle = '<div class="drag-handle" draggable="true" data-id="'+p.id+'" ondragstart="dragStart(event)" ontouchstart="touchStart(event)" ontouchmove="touchMove(event)" ontouchend="touchEnd(event)" onclick="event.stopPropagation()">⠿</div>';
+      html += '<div class="plant-card '+lv+'" id="card-'+p.id+'" onclick="openDetail('+p.id+')" ondragover="dragOver(event)" ondrop="dragDrop(event)" ondragend="dragEnd()">';
+      html += '<div class="card-inner">'+dragHandle+thumb+'<div class="card-info"><div class="card-name">'+p.name+'</div><div class="card-variety">'+p.variety+'</div><div class="card-badges">'+lvBadge+'<span class="badge-cat cat-'+(p.category||"other")+'">'+catI.icon+' '+catI.label+'</span>'+(p.photos&&p.photos.length>0?'<span class="badge badge-blue">📷'+p.photos.length+'枚</span>':'')+'</div></div></div>';
       var wd_=daysSince(p.lastWatered), fd_=daysSince(p.lastFertilized);
       var wStyle=wd_>=p.waterDays?'background:#fde8e3;color:#c0392b;font-weight:700;':'';
       var fStyle=fd_>=p.fertilizeDays?'background:#fff3d4;color:#9a6500;font-weight:700;':'';
@@ -773,6 +885,100 @@ function renderList() {
   el.innerHTML = html;
 }
 
+
+// ── ドラッグ&ドロップ並び替え ──────────────────────────────────────────────────
+var dragState = {id: null, startY: 0, currentY: 0};
+
+function dragStart(e){
+  dragState.id = parseInt(e.currentTarget.dataset.id);
+  e.dataTransfer.effectAllowed = "move";
+  setTimeout(function(){
+    var card = document.getElementById("card-"+dragState.id);
+    if(card) card.classList.add("dragging");
+  }, 0);
+}
+
+function dragOver(e){
+  e.preventDefault();
+  var card = e.currentTarget.closest(".plant-card");
+  if(!card) return;
+  document.querySelectorAll(".plant-card").forEach(function(c){ c.classList.remove("drag-over"); });
+  card.classList.add("drag-over");
+}
+
+function dragDrop(e){
+  e.preventDefault();
+  var targetCard = e.currentTarget.closest(".plant-card");
+  if(!targetCard) return;
+  var targetId = parseInt(targetCard.id.replace("card-",""));
+  reorderPlant(dragState.id, targetId);
+}
+
+function dragEnd(){
+  document.querySelectorAll(".plant-card").forEach(function(c){
+    c.classList.remove("dragging","drag-over");
+  });
+}
+
+// タッチ操作（スマホ対応）
+var touchDrag = {id:null, startY:0, clone:null};
+
+function touchStart(e){
+  touchDrag.id = parseInt(e.currentTarget.dataset.id);
+  touchDrag.startY = e.touches[0].clientY;
+  var card = document.getElementById("card-"+touchDrag.id);
+  if(card) card.classList.add("dragging");
+}
+
+function touchMove(e){
+  e.preventDefault();
+  var y = e.touches[0].clientY;
+  var els = document.elementsFromPoint(e.touches[0].clientX, y);
+  var targetCard = null;
+  for(var i=0;i<els.length;i++){
+    if(els[i].classList && els[i].classList.contains("plant-card") && els[i].id !== "card-"+touchDrag.id){
+      targetCard = els[i];
+      break;
+    }
+  }
+  document.querySelectorAll(".plant-card").forEach(function(c){ c.classList.remove("drag-over"); });
+  if(targetCard) targetCard.classList.add("drag-over");
+}
+
+function touchEnd(e){
+  var overCard = document.querySelector(".plant-card.drag-over");
+  if(overCard && touchDrag.id){
+    var targetId = parseInt(overCard.id.replace("card-",""));
+    reorderPlant(touchDrag.id, targetId);
+  }
+  document.querySelectorAll(".plant-card").forEach(function(c){
+    c.classList.remove("dragging","drag-over");
+  });
+  touchDrag.id = null;
+}
+
+function reorderPlant(fromId, toId){
+  if(fromId === toId) return;
+  var fromIdx = state.plants.findIndex(function(p){return p.id===fromId;});
+  var toIdx = state.plants.findIndex(function(p){return p.id===toId;});
+  if(fromIdx<0||toIdx<0) return;
+  var item = state.plants.splice(fromIdx,1)[0];
+  state.plants.splice(toIdx,0,item);
+  savePlants();
+  renderList();
+}
+
+function movePlant(id, dir){
+  var idx = state.plants.findIndex(function(p){return p.id===id;});
+  if(idx<0) return;
+  var newIdx = idx + dir;
+  if(newIdx<0||newIdx>=state.plants.length) return;
+  var tmp = state.plants[idx];
+  state.plants[idx] = state.plants[newIdx];
+  state.plants[newIdx] = tmp;
+  savePlants();
+  renderList();
+}
 function setFilter(cat) {
   state.catFilter = cat;
   renderList();
@@ -1126,7 +1332,10 @@ function renderDetail() {
   var p = state.plants.find(function(x){return x.id===state.detailId;});
   if(!p){backToList();return;}
   var catI = CAT[p.category]||CAT.other;
-  var lastPh = p.photos&&p.photos.length>0 ? p.photos[p.photos.length-1] : null;
+  // カバー写真：日誌の最新写真 > アルバム最新 > 絵文字
+  var lastLogPhoto = null;
+  if(p.logs){ var lr=[].concat(p.logs).reverse(); for(var li=0;li<lr.length;li++){if(lr[li].photoUrl){lastLogPhoto={url:lr[li].photoUrl,date:lr[li].date};break;}} }
+  var lastPh = lastLogPhoto || (p.photos&&p.photos.length>0 ? p.photos[p.photos.length-1] : null);
   var healthColor = p.health>=80?"var(--leaf)":p.health>=50?"var(--sun)":"var(--urgent)";
   var lv = urgency(p);
 
@@ -1136,7 +1345,15 @@ function renderDetail() {
   html += '<div class="detail-header">';
   html += '<button class="icon-btn" onclick="backToList()">←</button>';
   html += lastPh ? '<div class="detail-thumb"><img src="'+lastPh.url+'" alt="" onerror="this.style.display=\'none\'"></div>' : '<div class="detail-thumb">'+p.emoji+'</div>';
-  html += '<div style="flex:1"><div class="detail-name">'+p.name+'</div><div class="detail-meta">'+p.variety+' · '+catI.icon+' '+catI.label+' · 植付: '+fmtDate(p.planted)+'</div></div>';
+  var metaItems = [];
+  if(p.planted) metaItems.push('🌱 定植: '+fmtDate(p.planted));
+  if(p.seeded) metaItems.push('🫘 種まき: '+fmtDate(p.seeded));
+  if(p.sprouted) metaItems.push('🌿 発芽: '+fmtDate(p.sprouted));
+  if(p.bought) metaItems.push('🛒 購入: '+fmtDate(p.bought));
+  html += '<div style="flex:1"><div class="detail-name">'+p.name+'</div>';
+  html += '<div class="detail-meta">'+p.variety+' · '+catI.icon+' '+catI.label+'</div>';
+  if(metaItems.length>0) html += '<div style="font-size:.62rem;opacity:.8;margin-top:2px;">'+metaItems.join(' · ')+'</div>';
+  html += '</div>';
   html += '<button class="icon-btn" onclick="openEditModal('+p.id+')" style="flex-shrink:0;font-size:1rem;">✏️</button>';
   html += '<button class="icon-btn" onclick="openApiKeyModal()" style="flex-shrink:0;font-size:.9rem;" title="APIキー設定">🔑</button>';
   html += '</div>';
@@ -1157,6 +1374,24 @@ function renderDetail() {
   // Health
   html += '<div class="health-wrap"><div class="health-label">健康度</div>';
   html += '<div style="display:flex;align-items:center;gap:8px;"><div class="health-track" style="flex:1"><div class="health-fill" style="width:'+p.health+'%;background:'+healthColor+'"></div></div><span style="font-size:.82rem;font-weight:700;color:'+healthColor+'">'+p.health+'%</span></div></div>';
+
+  // 収穫目安・AIコメント
+  var harvestInfo = getHarvestInfo(p);
+  if(harvestInfo || p.aiComment){
+    html += '<div style="margin:0 12px 10px;background:linear-gradient(135deg,#f0f9ec,#fefcf7);border:1.5px solid var(--sprout);border-radius:12px;padding:10px 13px;">';
+    if(harvestInfo){
+      html += '<div style="font-size:.75rem;font-weight:700;color:var(--moss);margin-bottom:4px;">🗓 収穫目安</div>';
+      html += '<div style="font-size:.8rem;color:var(--soil);">'+harvestInfo+'</div>';
+    }
+    if(p.aiComment){
+      html += '<div style="font-size:.75rem;font-weight:700;color:var(--moss);margin-top:'+(harvestInfo?"8px":"0")+'px;margin-bottom:4px;">🤖 AIコメント</div>';
+      html += '<div style="font-size:.78rem;color:var(--soil);line-height:1.55;">'+p.aiComment+'</div>';
+    }
+    html += '<button onclick="refreshAIComment('+p.id+')" style="background:none;border:1px solid var(--sprout);border-radius:8px;padding:4px 10px;font-size:.7rem;color:var(--moss);cursor:pointer;margin-top:6px;font-family:inherit;">🔄 AIコメントを更新</button>';
+    html += '</div>';
+  } else {
+    html += '<div style="margin:0 12px 10px;"><button onclick="refreshAIComment('+p.id+')" style="background:#f0f9ec;border:1.5px solid var(--sprout);border-radius:10px;padding:8px 14px;cursor:pointer;font-family:inherit;font-size:.78rem;color:var(--moss);font-weight:700;display:flex;align-items:center;gap:5px;">🤖 AI品種コメントを取得</button></div>';
+  }
 
   // Care status
   html += '<div class="care-grid">';
@@ -1484,6 +1719,7 @@ function openEditModal(id){
     editId: id,
     // 既存値を保持
     _name: p.name, _variety: p.variety, _planted: p.planted,
+    _seeded: p.seeded||'', _bought: p.bought||'', _sprouted: p.sprouted||'',
     _water: p.waterDays, _fert: p.fertilizeDays,
     _sun: p.sunlight, _notes: p.notes,
     _waterChangeDays: p.waterChangeDays||14,
@@ -1518,7 +1754,12 @@ function renderAddModal(){
 
   html+='<div class="form-row"><label>植物名 *</label><div style="display:flex;gap:6px;"><input type="text" id="f-name" placeholder="例: レモン、ブルーベリー、もみじ" value="'+(addForm._name||'')+'" style="flex:1;border:1.5px solid var(--petal);border-radius:10px;padding:9px 12px;font-family:inherit;font-size:.88rem;color:var(--soil);outline:none;"><button onclick="autoFillPlantProfile()" style="background:var(--moss);color:#fff;border:none;border-radius:10px;padding:9px 12px;font-family:inherit;font-size:.75rem;cursor:pointer;white-space:nowrap;">🤖 AI自動設定</button></div></div>';
   html+='<div class="form-row"><label>品種・系統</label><input type="text" id="f-variety" placeholder="例: リスボン、ラビットアイ系" value="'+(addForm._variety||'')+'"></div>';
-  html+='<div class="form-row"><label>植え付け日</label><input type="date" id="f-planted" value="'+(addForm._planted||todayStr())+'"></div>';
+  html+='<div class="form-row"><label>植え付け・定植日</label><input type="date" id="f-planted" value="'+(addForm._planted||todayStr())+'"></div>';
+  html+='<div class="two-col">';
+  html+='<div class="form-row"><label>🌱 種まき日</label><input type="date" id="f-seeded" value="'+(addForm._seeded||'')+'"></div>';
+  html+='<div class="form-row"><label>🛒 苗購入日</label><input type="date" id="f-bought" value="'+(addForm._bought||'')+'"></div>';
+  html+='</div>';
+  html+='<div class="form-row"><label>🌿 発芽日</label><input type="date" id="f-sprouted" value="'+(addForm._sprouted||'')+'"></div>';
   html+='<div class="two-col"><div class="form-row"><label>水やり（日おき）</label><input type="number" id="f-water" min="1" max="90" value="'+(addForm._water||3)+'"></div><div class="form-row"><label>追肥（日おき）</label><input type="number" id="f-fert" min="1" max="365" value="'+(addForm._fert||14)+'"></div></div>';
   var sunVal = addForm._sun||'full';
   var isHydro = addForm.category === "hydroponic";
@@ -1530,18 +1771,7 @@ function renderAddModal(){
   }
   html+='<div class="form-row"><label>メモ</label><textarea id="f-notes" rows="2" placeholder="気づいたこと、注意点など">'+(addForm._notes||'')+'</textarea></div>';
 
-  // Cover photo
-  html+='<div class="form-row"><label>カバー写真（任意）</label>';
-  if(addForm.coverUrl){
-    html+='<div style="position:relative"><img src="'+addForm.coverUrl+'" style="width:100%;max-height:140px;object-fit:cover;border-radius:10px;"><button onclick="addForm.coverUrl=null;renderAddModal()" style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,.5);border:none;color:#fff;border-radius:50%;width:26px;height:26px;cursor:pointer;">✕</button></div>';
-  } else {
-    html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">';
-    html+='<label class="src-btn"><input type="file" accept="image/*" onchange="setCoverPhoto(this)"><span class="s-icon">🖼</span><span>フォルダから</span></label>';
-    html+='<label class="src-btn"><input type="file" accept="image/*" capture="environment" onchange="setCoverPhoto(this)"><span class="s-icon">📷</span><span>カメラで撮影</span></label>';
-    html+='</div>';
-    html+='<div class="url-row" style="margin-top:6px;"><input type="url" id="cover-url-input" placeholder="画像URL / Google Drive共有リンク"><button onclick="setCoverUrl()">追加</button></div>';
-  }
-  html+='</div>';
+  // カバー写真欄は削除 - 日誌写真が自動でカバーになります
 
   var deleteBtn = isEdit ? ('<button style="flex:1;background:#fde8e3;color:#c0392b;border:1.5px solid #e07a5f;border-radius:12px;padding:12px;font-family:inherit;font-size:.88rem;cursor:pointer;" onclick="deletePlant('+addForm.editId+')">削除</button>') : '';
   var saveBtn = isEdit ? '<button class="btn-p" onclick="submitAdd()">保存する</button>' : '<button class="btn-p" onclick="submitAdd()">追加する</button>';
@@ -1636,9 +1866,13 @@ function submitAdd(){
     state.plants=state.plants.map(function(p){
       if(p.id!==addForm.editId) return p;
       var wcDays = parseInt((document.getElementById("f-waterchange")||{value:p.waterChangeDays||14}).value)||14;
+      var seeded_=(document.getElementById("f-seeded")||{value:p.seeded||""}).value||"";
+      var bought_=(document.getElementById("f-bought")||{value:p.bought||""}).value||"";
+      var sprouted_=(document.getElementById("f-sprouted")||{value:p.sprouted||""}).value||"";
       var updated=Object.assign({},p,{
         name:name, variety:variety, emoji:addForm.emoji,
         category:category, planted:planted,
+        seeded:seeded_, bought:bought_, sprouted:sprouted_,
         waterDays:waterDays, fertilizeDays:fertilizeDays,
         sunlight:sunlight, notes:notes,
         waterChangeDays: wcDays,
@@ -1658,17 +1892,21 @@ function submitAdd(){
   } else {
     // 新規追加モード
     var waterChangeDays = parseInt((document.getElementById("f-waterchange")||{value:14}).value)||14;
+    var seeded=(document.getElementById("f-seeded")||{value:""}).value||"";
+    var bought=(document.getElementById("f-bought")||{value:""}).value||"";
+    var sprouted=(document.getElementById("f-sprouted")||{value:""}).value||"";
     var p={
       id: Date.now(),
       name:name, variety:variety, emoji:addForm.emoji,
       category:category, planted:planted,
+      seeded:seeded, bought:bought, sprouted:sprouted,
       lastWatered:todayStr(), lastFertilized:todayStr(),
       waterDays:waterDays, fertilizeDays:fertilizeDays,
       sunlight:sunlight, health:100, notes:notes,
       waterChangeDays: waterChangeDays,
       lastWaterChanged: category==="hydroponic" ? todayStr() : null,
-      photos: addForm.coverUrl ? [{url:addForm.coverUrl,date:todayStr()}] : [],
-      logs: [{date:todayStr(),note:category==="hydroponic"?"水耕栽培開始":"植え付け",photoUrl:addForm.coverUrl||null}],
+      photos: [],
+      logs: [{date:todayStr(),note:category==="hydroponic"?"水耕栽培開始":"植え付け"}],
     };
     state.plants.push(p);
     closeAddModal();

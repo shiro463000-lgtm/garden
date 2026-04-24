@@ -8,26 +8,8 @@
 <meta name="apple-mobile-web-app-title" content="菜園ノート">
 <meta name="theme-color" content="#4a6741">
 <title>家庭菜園ノート</title>
-<!-- Firebase SDK (compat版) -->
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-<script>
-  firebase.initializeApp({
-    apiKey: "AIzaSyBPLi4L7FHXQ22ZxAP-TUW-NsD8E-EDYPo",
-    authDomain: "garden-f6624.firebaseapp.com",
-    projectId: "garden-f6624",
-    storageBucket: "garden-f6624.firebasestorage.app",
-    messagingSenderId: "196057665944",
-    appId: "1:196057665944:web:f83e1edd4523d87352dbed"
-  });
-  // compat APIをwindow._fbに格納
-  window._fb = {
-    auth: firebase.auth(),
-    db:   firebase.firestore(),
-    provider: new firebase.auth.GoogleAuthProvider(),
-  };
-</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&family=Shippori+Mincho:wght@500;600&display=swap" rel="stylesheet">
 <style>
@@ -307,7 +289,6 @@ const STORAGE_KEY = "garden-plants-v2";
 
 // ── Firebase同期ストレージ ────────────────────────────────────────────────────
 // ユーザーがログイン済みならFirestore、未ログインはlocalStorageにフォールバック
-var state_uid = null;  // ログイン中ユーザーのUID
 
 function loadPlants() {
   try { var v=localStorage.getItem(STORAGE_KEY); if(v)return JSON.parse(v); } catch(e){}
@@ -317,53 +298,9 @@ function loadPlants() {
 function savePlants() {
   // localStorage常に更新（オフライン用）
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state.plants)); } catch(e){}
-  // Firestoreにも保存（ログイン中のみ）
-  if(state_uid && window._fb){
-    var ts = Date.now();
-    state._lastSave = ts;
-    window._fb.db.collection("users").doc(state_uid)
-      .collection("data").doc("plants")
-      .set({ list: state.plants, updated: ts })
-      .catch(function(e){ console.warn("Firestore save error:", e); });
-  }
   return Promise.resolve();
 }
 
-// Firestoreからロードしてローカルを上書き
-async function loadFromFirestore(uid){
-  if(!window._fb) return;
-  state._lastSave = 0;
-  try {
-    var ref = window._fb.db.collection("users").doc(uid).collection("data").doc("plants");
-    var snap = await ref.get();
-    if(snap.exists){
-      var data = snap.data();
-      if(data.list && data.list.length > 0){
-        state.plants = data.list;
-        state._lastSave = data.updated || 0;
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state.plants));
-        renderList();
-        if(state.currentScreen==="today") renderToday();
-        showToast("クラウドからデータを同期しました");
-      }
-    }
-    // リアルタイム監視
-    ref.onSnapshot(function(snap){
-      if(!snap.exists) return;
-      var data = snap.data();
-      var remoteTs = data.updated || 0;
-      if(remoteTs > (state._lastSave || 0) + 1000){
-        state.plants = data.list;
-        state._lastSave = remoteTs;
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state.plants));
-        renderList();
-        if(state.currentScreen==="today") renderToday();
-        if(state.detailId) renderDetail();
-        showToast("他のデバイスからデータを受信しました");
-      }
-    });
-  } catch(e){ console.warn("Firestore load error:", e); }
-}
 
 // ── State ─────────────────────────────────────────────────────────────────────
 var state = {
@@ -776,6 +713,23 @@ async function sendChat(){
 
 
 // ── 収穫目安計算 ──────────────────────────────────────────────────────────────
+function getHarvestProgress(p){
+  var harvestDays = {
+    "🍅":90,"🥬":45,"🥕":90,"🥦":90,"🧄":240,"🥒":55,
+    "🌽":80,"🍆":70,"🥔":90,"🫛":60,"🫑":70,"🧅":120,
+    "🍎":365*3,"🍋":365*2,"🍇":365*3,"🍓":90,"🫐":365*2,
+    "🌻":90,"🌹":60,
+  };
+  var baseDate = p.sprouted || p.seeded || p.planted;
+  if(!baseDate) return 0;
+  var days = harvestDays[p.emoji];
+  if(!days) return 0;
+  var start = new Date(baseDate);
+  var harvest = new Date(start.getTime() + days*86400000);
+  var now = new Date();
+  return Math.max(0, Math.round((now-start)/(harvest-start)*100));
+}
+
 function getHarvestInfo(p){
   // 種まき日または定植日から収穫目安を計算
   var baseDate = p.seeded || p.planted;
@@ -844,11 +798,9 @@ async function refreshAIComment(id){
 
 // ── Google Drive 写真保存 ─────────────────────────────────────────────────────
 async function saveToDrive(dataUrl, filename){
-  if(!window._fb || !state_uid) return null;
 
   // Firebase AuthからGoogleのアクセストークンを取得
   try {
-    var user = window._fb.auth.currentUser;
     if(!user) return null;
 
     // GoogleのOAuthトークンを取得
@@ -872,10 +824,6 @@ async function addPhotoAndSaveToDrive(plantId, dataUrl, filename){
   p.photos = (p.photos||[]).concat([{url:dataUrl, date:todayStr()}]);
   savePlants();
 
-  // ログイン中ならGoogle Driveにも保存を試みる
-  if(state_uid && window.gapi){
-    saveToDrive(dataUrl, filename || (p.name+"_"+todayStr()+".jpg"));
-  }
 }
 
 // ── AI総合診断・アドバイスセクション ─────────────────────────────────────────
@@ -884,12 +832,7 @@ function buildAISection(p){
   var harvestInfo = getHarvestInfo(p);
   var html = '<div style="margin:0 12px 10px;background:linear-gradient(135deg,#fff8f0,#fefcf7);border:1.5px solid #e8b87a;border-radius:12px;padding:12px;">';
   html += '<div style="font-size:.72rem;font-weight:700;color:#9a5a00;letter-spacing:.06em;margin-bottom:8px;">🤖 AI診断・アドバイス</div>';
-  if(harvestInfo){
-    html += '<div style="background:rgba(255,255,255,.6);border-radius:8px;padding:7px 10px;margin-bottom:8px;">';
-    html += '<div style="font-size:.68rem;font-weight:700;color:var(--moss);">🗓 収穫目安</div>';
-    html += '<div style="font-size:.78rem;color:var(--soil);margin-top:2px;">'+harvestInfo+'</div>';
-    html += '</div>';
-  }
+
   if(p.aiComment){
     html += '<div style="background:rgba(255,255,255,.6);border-radius:8px;padding:7px 10px;margin-bottom:8px;">';
     html += '<div style="font-size:.68rem;font-weight:700;color:var(--moss);">🌿 アドバイス '+(p.aiCommentDate||'')+'</div>';
@@ -938,7 +881,13 @@ async function runAIDiagnosis(id){
   state.scanData.loading=true;
   renderDetail();
   var p=state.plants.find(function(x){return x.id===id;});
-  var prompt="家庭菜園アドバイザーとして「"+p.name+"（"+p.variety+"）」の写真を診断。JSONのみ回答(前置き不要):\n{\"health\":数値0-100,\"status\":\"良好\"か\"要注意\"か\"要対処\",\"issues\":[\"問題点\"],\"advice\":\"アドバイス2文\",\"next_action\":\"今すぐやること1文\",\"water_days\":推奨水やり間隔,\"fert_days\":推奨追肥間隔}";
+  var harvestDaysLeft = getHarvestInfo(p) || "不明";
+  var prompt="家庭菜園アドバイザーとして「"+p.name+"（"+p.variety+"）」の写真と現在の状態から診断してください。JSONのみ回答(前置き不要):\n"
+    +"{\"health\":数値0-100,\"status\":\"良好\"か\"要注意\"か\"要対処\","
+    +"\"issues\":[\"問題点\"],\"advice\":\"アドバイス2文\",\"next_action\":\"今すぐやること1文\"," 
+    +"\"water_days\":推奨水やり間隔日数,\"fert_days\":推奨追肥間隔日数,"
+    +"\"harvest_days_adjust\":現在の収穫目安(\""+harvestDaysLeft+"\")を写真の生育状況を見て修正が必要なら修正後の残日数(数値)、不要なら0}"
+    +"\n現在の管理状況: 水やり"+daysSince(p.lastWatered)+"日前 追肥"+daysSince(p.lastFertilized)+"日前 健康度"+p.health+"%";
   try{
     var data=await callClaude([{role:"user",content:[{type:"image",source:{type:"base64",media_type:"image/jpeg",data:state.scanData.imgB64}},{type:"text",text:prompt}]}],800);
     var raw=(data.content||[]).map(function(c){return c.text||"";}).join("");
@@ -947,6 +896,14 @@ async function runAIDiagnosis(id){
     if(parsed.health!=null) p.health=parsed.health;
     if(parsed.water_days>0) p.waterDays=parsed.water_days;
     if(parsed.fert_days>0) p.fertilizeDays=parsed.fert_days;
+    // 写真から収穫目安を修正（AIが生育状況を見て判断）
+    if(parsed.harvest_days_adjust && parsed.harvest_days_adjust > 0){
+      // planted日を逆算して収穫目安を調整
+      var today = new Date();
+      var newPlanted = new Date(today.getTime() - parsed.harvest_days_adjust * 0.3 * 86400000);
+      p.planted = newPlanted.toISOString().split("T")[0];
+      state.scanData.result.harvest_updated = "収穫目安を写真の生育状況に基づいて修正しました";
+    }
     savePlants();
   }catch(e){
     state.scanData.result={health:null,status:"エラー",issues:[],advice:"診断に失敗しました。",next_action:""};
@@ -1001,11 +958,8 @@ function renderList() {
 
   var html = "";
   // Top bar
-  var loginBtn = state_uid
-    ? '<button onclick="firebaseSignOut()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:20px;padding:4px 10px;font-size:.65rem;cursor:pointer;font-family:inherit;white-space:nowrap;">☁ 同期中</button>'
-    : '<button onclick="firebaseSignIn()" style="background:rgba(255,255,255,.25);border:1px solid rgba(255,255,255,.5);color:#fff;border-radius:20px;padding:4px 10px;font-size:.65rem;cursor:pointer;font-family:inherit;white-space:nowrap;">☁ ログイン</button>';
-  var exportBtn = '<button onclick="exportData()" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:20px;padding:4px 8px;font-size:.75rem;cursor:pointer;margin-right:4px;">📤</button>';
-  html += '<div class="top-bar"><div class="top-icon">🌿</div><div style="flex:1"><div style="font-family:\'Shippori Mincho\',serif;font-size:1.1rem;font-weight:600;">家庭菜園ノート</div><div class="sub">'+plants.length+'株を管理中</div></div>'+exportBtn+loginBtn+'</div>';
+  var exportBtn = '<button onclick="exportData()" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:20px;padding:4px 8px;font-size:.75rem;cursor:pointer;">📤</button>';
+  html += '<div class="top-bar"><div class="top-icon">🌿</div><div style="flex:1"><div style="font-family:Shippori Mincho,serif;font-size:1.1rem;font-weight:600;">家庭菜園ノート</div><div class="sub">'+plants.length+'株を管理中</div></div>'+exportBtn+'</div>';
 
   // Weather header with location
   var locName = state.location ? state.location.name : "東京";
@@ -1551,6 +1505,21 @@ function renderDetail() {
 
   // AI総合診断セクション
   html += buildAISection(p);
+
+  // 収穫目安ボックス
+  var harvestInfo = getHarvestInfo(p);
+  if(harvestInfo){
+    var hPct = getHarvestProgress(p);
+    var hColor = hPct>=100?"var(--urgent)":hPct>=80?"var(--sun)":"var(--leaf)";
+    html += '<div style="margin:0 12px 10px;background:linear-gradient(135deg,#f0f9ec,#fff);border:1.5px solid var(--sprout);border-radius:12px;padding:11px 13px;">';
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">';
+    html += '<div style="font-size:.75rem;font-weight:700;color:var(--moss);">🗓 収穫目安</div>';
+    html += '<span style="font-size:.7rem;color:'+hColor+';font-weight:700;">進捗 '+hPct+'%</span>';
+    html += '</div>';
+    html += '<div style="height:7px;background:var(--petal);border-radius:4px;margin-bottom:7px;overflow:hidden;"><div style="height:100%;width:'+Math.min(hPct,100)+'%;background:'+hColor+';border-radius:4px;"></div></div>';
+    html += '<div style="font-size:.8rem;color:var(--soil);">'+harvestInfo+'</div>';
+    html += '</div>';
+  }
 
   // Care status
   html += '<div class="care-grid">';
@@ -2174,133 +2143,6 @@ function useCurrentLocation(){
     await selectLocation(name, lat, lon);
   }, function(){ showToast("位置情報の取得に失敗しました"); });
 }
-
-// ── Firebase Auth ─────────────────────────────────────────────────────────────
-function firebaseSignIn(){
-  if(!window._fb){ showToast("Firebaseの設定が必要です"); return; }
-  var isMobile = /iphone|ipad|ipod|android/i.test(navigator.userAgent);
-  if(isMobile){
-    // スマホ：リダイレクト方式
-    window._fb.auth.signInWithRedirect(window._fb.provider)
-      .catch(function(e){ showToast("ログインに失敗しました: " + e.message); });
-  } else {
-    // PC：ポップアップ方式
-    window._fb.auth.signInWithPopup(window._fb.provider)
-      .then(function(result){
-        if(result && result.user){
-          state_uid = result.user.uid;
-          showToast(result.user.displayName + " でログインしました");
-          renderList();
-          loadFromFirestore(result.user.uid);
-        }
-      })
-      .catch(function(e){
-        var user = window._fb.auth.currentUser;
-        if(user){
-          state_uid = user.uid;
-          showToast("ログインしました");
-          renderList();
-          loadFromFirestore(user.uid);
-        } else {
-          showToast("ログインに失敗しました: " + e.code);
-        }
-      });
-  }
-}
-
-// ── データエクスポート/インポート ──────────────────────────────────────────────
-function closeExportModal(){ var el=document.getElementById("export-modal"); if(el) el.style.display="none"; }
-function closeImportModal(){ var el=document.getElementById("import-modal"); if(el) el.style.display="none"; }
-function exportData(){
-  var data = JSON.stringify(state.plants);
-  // テキストエリアに表示してコピーできるようにする
-  var el = document.getElementById("export-modal");
-  if(!el){
-    el = document.createElement("div");
-    el.id = "export-modal";
-    el.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:flex-end;";
-    document.body.appendChild(el);
-  }
-  el.style.display = "flex";
-  el.innerHTML = '<div style="background:#fff;border-radius:20px 20px 0 0;width:100%;padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom));">'
-    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">'
-    + '<div style="font-weight:700;font-size:.95rem;">📤 データのバックアップ</div>'
-    + '<button onclick="closeExportModal()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;">✕</button>'
-    + '</div>'
-    + '<div style="font-size:.75rem;color:#888;margin-bottom:8px;">下のテキストを全選択してコピーしてください</div>'
-    + '<textarea id="export-text" style="width:100%;height:120px;border:1.5px solid var(--petal);border-radius:10px;padding:8px;font-size:.7rem;font-family:monospace;" readonly>' + data + '</textarea>'
-    + '<div style="display:flex;gap:8px;margin-top:10px;">'
-    + '<button onclick="copyExportData()" style="flex:1;background:var(--moss);color:#fff;border:none;border-radius:10px;padding:11px;font-family:inherit;font-size:.85rem;font-weight:700;cursor:pointer;">📋 コピー</button>'
-    + '<button onclick="openImportModal()" style="flex:1;background:var(--cream);color:var(--soil);border:1.5px solid var(--petal);border-radius:10px;padding:11px;font-family:inherit;font-size:.85rem;cursor:pointer;">📥 インポート</button>'
-    + '</div></div>';
-  el.onclick = function(e){ if(e.target===el) el.style.display="none"; };
-}
-
-function copyExportData(){
-  var ta = document.getElementById("export-text");
-  if(ta){
-    ta.select();
-    try {
-      document.execCommand("copy");
-      showToast("コピーしました！");
-    } catch(e) {
-      // モバイルのフォールバック
-      navigator.clipboard.writeText(ta.value).then(function(){
-        showToast("コピーしました！");
-      }).catch(function(){
-        showToast("テキストを手動でコピーしてください");
-      });
-    }
-  }
-}
-
-function openImportModal(){
-  document.getElementById("export-modal").style.display="none";
-  var el = document.getElementById("import-modal");
-  if(!el){
-    el = document.createElement("div");
-    el.id = "import-modal";
-    el.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:flex-end;";
-    document.body.appendChild(el);
-  }
-  el.style.display = "flex";
-  el.innerHTML = '<div style="background:#fff;border-radius:20px 20px 0 0;width:100%;padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom));">'
-    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">'
-    + '<div style="font-weight:700;font-size:.95rem;">📥 データのインポート</div>'
-    + '<button onclick="closeImportModal()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;">✕</button>'
-    + '</div>'
-    + '<div style="font-size:.75rem;color:#888;margin-bottom:8px;">バックアップデータを貼り付けてください</div>'
-    + '<textarea id="import-text" style="width:100%;height:120px;border:1.5px solid var(--petal);border-radius:10px;padding:8px;font-size:.7rem;font-family:monospace;" placeholder="ここにバックアップデータを貼り付け..."></textarea>'
-    + '<button onclick="doImport()" style="width:100%;background:var(--moss);color:#fff;border:none;border-radius:10px;padding:11px;font-family:inherit;font-size:.85rem;font-weight:700;cursor:pointer;margin-top:10px;">インポートする</button>'
-    + '</div>';
-  el.onclick = function(e){ if(e.target===el) el.style.display="none"; };
-}
-
-function doImport(){
-  var ta = document.getElementById("import-text");
-  if(!ta || !ta.value.trim()){ showToast("データを入力してください"); return; }
-  try {
-    var plants = JSON.parse(ta.value.trim());
-    if(!Array.isArray(plants)){ throw new Error("Invalid format"); }
-    state.plants = plants;
-    savePlants();
-    document.getElementById("import-modal").style.display="none";
-    renderList();
-    showToast(plants.length + "株のデータをインポートしました");
-  } catch(e) {
-    showToast("データの形式が正しくありません");
-  }
-}
-
-function firebaseSignOut(){
-  if(!window._fb) return;
-  window._fb.auth.signOut().then(function(){
-    state_uid = null;
-    showToast("ログアウトしました（データはこの端末に残ります）");
-    renderList();
-  });
-}
-
 // ── Init ──────────────────────────────────────────────────────────────────────
 (async function(){
   var loc = loadLocation();
@@ -2317,60 +2159,7 @@ function firebaseSignOut(){
     }
   });
 
-  // Firebase Auth 状態監視（SDKロード後に実行）
-  function initFirebaseAuth(){
-    if(!window._fb){ setTimeout(initFirebaseAuth, 500); return; }
 
-    // onAuthStateChanged を最優先で設定
-    window._fb.auth.onAuthStateChanged(async function(user){
-      console.log("onAuthStateChanged:", user ? user.uid : "null");
-      if(user){
-        state_uid = user.uid;
-        renderList();
-        await loadFromFirestore(user.uid);
-        // ログイン後に保存もトリガー（スマホのデータをクラウドに）
-        if(state.plants && state.plants.length > 0){
-          savePlants();
-        }
-      } else {
-        state_uid = null;
-        renderList();
-      }
-    });
-
-    // リダイレクト後の結果を処理（スマホ対応）
-    window._fb.auth.getRedirectResult().then(function(result){
-      if(result && result.user){
-        console.log("getRedirectResult success:", result.user.uid);
-        showToast(result.user.displayName + " でログインしました");
-        // onAuthStateChangedで処理されるので不要だが念のため
-        if(!state_uid){
-          state_uid = result.user.uid;
-          renderList();
-          loadFromFirestore(result.user.uid);
-        }
-      } else {
-        // リダイレクト結果なし - currentUserを確認
-        var cu = window._fb.auth.currentUser;
-        if(cu && !state_uid){
-          console.log("currentUser after redirect:", cu.uid);
-          state_uid = cu.uid;
-          renderList();
-          loadFromFirestore(cu.uid);
-        }
-      }
-    }).catch(function(e){
-      console.warn("getRedirectResult error:", e.code, e.message);
-      // エラーでもcurrentUserを確認
-      var cu = window._fb.auth.currentUser;
-      if(cu && !state_uid){
-        state_uid = cu.uid;
-        renderList();
-        loadFromFirestore(cu.uid);
-      }
-    });
-  }
-  initFirebaseAuth();
 
   // iOS install hint
   var isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
